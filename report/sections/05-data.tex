@@ -1,0 +1,57 @@
+%======================================================================
+%  3. Data: source, description, processing
+%======================================================================
+\section{Data}
+\label{sec:data}
+
+\subsection{Source}
+
+TODO --- State where the data comes from and provide links to the data
+sources (e.g.\ Statistics Denmark, \url{https://www.dst.dk/en}). Mention
+the specific tables/APIs used and the date of retrieval.
+
+\subsection{Description}
+
+The main dataset (\texttt{affordability\_annual.csv}) covers the years
+1995--2024. TODO --- state the exact number of records and any special
+feature of the data (missing values, suppressed cells, unbalanced panels,
+nominal vs.\ real prices, \ldots).
+
+\begin{table}[H]
+\centering
+\caption{Variables in the main dataset.}
+\label{tab:variables}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Variable} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\texttt{year}          & integer     & Year in which the data was recorded (1995--2024). \\
+\texttt{nuts3}         & categorical & NUTS-3 code of the region (e.g.\ \texttt{DK011}). \\
+\texttt{landsdel}      & categorical & Danish region / geographical area. \\
+\texttt{property\_type}& categorical & Property type: \texttt{one\_family\_house}, \texttt{owner\_occupied\_flat}. \\
+\texttt{family\_type}  & categorical & Household type: \texttt{all\_families}, \texttt{couples}, \texttt{singles}. \\
+\texttt{n\_sales}      & integer     & Number of property sales recorded. \\
+\texttt{avg\_price\_dkk}& numeric    & Average property price in DKK. \\
+\texttt{n\_families}   & integer     & Number of families represented. \\
+\texttt{avg\_income\_dkk}& numeric   & Average (disposable) income in DKK. \\
+\texttt{ratio}         & numeric     & Affordability ratio, \texttt{avg\_price\_dkk} / \texttt{avg\_income\_dkk}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent In addition, \texttt{landsdele.topo.json} provides the TopoJSON
+geometries of the Danish \emph{landsdele}, used for the choropleth map.
+
+\subsection{Data Processing}
+
+TODO --- Describe whether substantial data cleanup was needed and which
+techniques were used, for example:
+
+\begin{itemize}
+  \item Joining the price table and the income table on year and region.
+  \item Harmonising region names/codes between the statistical tables and
+        the TopoJSON geometries.
+  \item Handling missing or suppressed values.
+  \item Deriving the affordability \texttt{ratio} and any index variables.
+  \item Tools used (R/\texttt{dplyr}, Python/\texttt{pandas}, \ldots).
+\end{itemize}

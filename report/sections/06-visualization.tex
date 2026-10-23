@@ -1,0 +1,154 @@
+%======================================================================
+%  4. Visualization / Dashboard: design + must-have features
+%======================================================================
+\section{Visualization and Dashboard}
+\label{sec:visualization}
+
+\noindent The dashboard is available at \url{\dashboardurl}. The report can be
+downloaded as a manual directly from the dashboard (see
+Section~\ref{sec:musthaves}, feature~6).
+
+\subsection{Design}
+\label{sec:design}
+
+TODO --- Describe how the data is displayed: the overall layout of the
+dashboard, the navigation between views, the filters, and the general
+ideas behind the design. For each view, justify the choice of visual
+encodings (position, length, colour, size, shape) and explain why the
+chosen encoding fits the question it answers.
+
+\subsection{Must-Have Features}
+\label{sec:musthaves}
+
+\begin{table}[H]
+\centering
+\caption{Required features and where they are implemented.}
+\label{tab:musthaves}
+\begin{tabularx}{\textwidth}{@{}c X l@{}}
+\toprule
+\textbf{\#} & \textbf{Required feature} & \textbf{Where} \\
+\midrule
+1 & At least three types of graphs (e.g.\ bar chart, time series, box plot) & Figs.~\ref{fig:g1}--\ref{fig:g9} \\
+2 & At least one animated graph & Fig.~\ref{fig:g7} \\
+3 & An AI-generated graph, documented (platform + prompt + question answered) & Sec.~\ref{sec:aigraph} \\
+4 & At least nine graphs in total & Figs.~\ref{fig:g1}--\ref{fig:g9} \\
+5 & Link to the dashboard in the report & Sec.~\ref{sec:visualization} \\
+6 & Option to download the report as a manual from the dashboard & TODO \\
+7 & A unique, custom visualization not available as a standard R/Python function & Sec.~\ref{sec:customviz} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{The Graphs}
+\label{sec:graphs}
+
+% ---------------------------------------------------------------------
+% One figure per graph. Replace the placeholder path with your image and
+% keep the \label so that Table~\ref{tab:musthaves} stays correct.
+% ---------------------------------------------------------------------
+
+\begin{figure}[H]
+\centering
+% \includegraphics[width=\textwidth]{g1-price-timeseries.png}
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert image}}
+\caption{\textbf{Graph 1 --- TODO title.} Chart type, what it encodes, and which
+research question it answers.}
+\label{fig:g1}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert image}}
+\caption{\textbf{Graph 2 --- TODO title.} TODO description.}
+\label{fig:g2}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert image}}
+\caption{\textbf{Graph 3 --- TODO title.} TODO description.}
+\label{fig:g3}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert image}}
+\caption{\textbf{Graph 4 --- TODO title.} TODO description.}
+\label{fig:g4}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert image}}
+\caption{\textbf{Graph 5 --- TODO title.} TODO description.}
+\label{fig:g5}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert image}}
+\caption{\textbf{Graph 6 --- TODO title.} TODO description.}
+\label{fig:g6}
+\end{figure}
+
+% ---- Animated graph (must-have 2) -----------------------------------
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert key frames}}
+\caption{\textbf{Graph 7 --- animated graph.} TODO: show a few representative
+frames and describe what the animation adds. State the tool used
+(e.g.\ \texttt{gganimate}) and the variable mapped to time.}
+\label{fig:g7}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert image}}
+\caption{\textbf{Graph 8 --- TODO title.} TODO description.}
+\label{fig:g8}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert image}}
+\caption{\textbf{Graph 9 --- TODO title.} TODO description.}
+\label{fig:g9}
+\end{figure}
+
+\subsection{AI-Generated Graph}
+\label{sec:aigraph}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert the AI-generated graph}}
+\caption{\textbf{AI-generated graph.} TODO description.}
+\label{fig:aigraph}
+\end{figure}
+
+\begin{description}
+  \item[Platform.] TODO --- which AI platform/tool produced the graph.
+  \item[Prompt(s).] TODO --- the exact prompt(s) used, quoted verbatim.
+  \item[Question answered.] TODO --- which of the questions in
+        Section~\ref{sec:objectives} this graph answers.
+  \item[Post-processing.] TODO --- any manual corrections applied to the output.
+\end{description}
+
+\subsection{Custom Visualization}
+\label{sec:customviz}
+
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][4cm][c]{0.9\textwidth}{\centering TODO: insert the custom visualization}}
+\caption{\textbf{Custom visualization.} TODO description.}
+\label{fig:customviz}
+\end{figure}
+
+TODO --- Explain why this visualization cannot be produced by an existing
+R or Python function, how it was built (e.g.\ D3.js, hand-drawn), and what
+it shows that the standard charts do not.
+
+\subsection{Interaction}
+\label{sec:interaction}
+
+TODO --- Describe the interaction elements (filters, tooltips, brushing and
+linking, zoom, year slider, region selection) with referenced screenshots.
