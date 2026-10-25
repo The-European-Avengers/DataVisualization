@@ -44,14 +44,36 @@ geometries of the Danish \emph{landsdele}, used for the choropleth map.
 
 \subsection{Data Processing}
 
-TODO --- Describe whether substantial data cleanup was needed and which
-techniques were used, for example:
+The housing and income tables were combined into an annual panel covering the 11 landsdele from 1995 to 2024, the years common to both sources. 
+For housing, only ordinary free trades were retained, since family transfers and other transaction types do not reflect market prices. 
+One-family houses form the main series and owner-occupied flats a secondary one, as houses alone would misrepresent Byen København, where most purchases are flats.
 
-\begin{itemize}
-  \item Joining the price table and the income table on year and region.
-  \item Harmonising region names/codes between the statistical tables and
-        the TopoJSON geometries.
-  \item Handling missing or suppressed values.
-  \item Deriving the affordability \texttt{ratio} and any index variables.
-  \item Tools used (R/\texttt{dplyr}, Python/\texttt{pandas}, \ldots).
-\end{itemize}
+The housing data are quarterly, whereas income is reported annually. 
+Annual prices were therefore obtained as the sales-weighted mean of the quarterly averages,
+\begin{equation}
+  \bar{p}_{r,t} = \frac{\sum_{q=1}^{4} n_{r,t,q}\, p_{r,t,q}}{\sum_{q=1}^{4} n_{r,t,q}},
+\end{equation}
+where $p_{r,t,q}$ is the average price and $n_{r,t,q}$ the number of sales in the price calculation for landsdel $r$ in quarter $q$ of year $t$. 
+This reproduces the average over all sales in the year. 
+Quarters without sales, which the source reports as a price of zero, were treated as missing and given no weight. 
+As prices are averages rather than medians, the mix of homes sold may change over time.
+
+Income was taken as the average income per family, both after tax (disposable income) and before tax (pre-tax income), for all families, couples and single people. 
+The published totals were used as reported. 
+Affordability is expressed as the price-to-income ratio
+\begin{equation}
+  R^{\,k}_{r,t} = \frac{\bar{p}_{r,t}}{\bar{y}^{\,k}_{r,t}}, \qquad k \in \{\text{disposable},\ \text{pre-tax}\},
+\end{equation}
+where $\bar{y}^{\,k}_{r,t}$ is the average family income of type $k$. 
+Both quantities are in current prices, so the ratio requires no inflation adjustment. 
+For couples and single people, the same average price is divided by the respective group's income, regardless of who actually bought the property.
+
+The tables were joined on the NUTS~3 code. 
+Region labels in the Statistics Denmark exports were harmonised (the ``Province'' prefix removed and Unicode forms normalised) and matched to the names in the boundary file, which carries the corresponding codes. 
+All 11 landsdele matched, and the resulting panel is complete, with no missing values.
+
+The boundary file was prepared for web display in three steps. 
+Islets smaller than $0.5~\text{km}^2$, including Ertholmene, were removed. 
+The geometry was then simplified using weighted Visvalingam simplification, keeping 5\% of the points while preserving all shapes, which reduced the file from 2.8~MB to about 180~KB. 
+The result was stored as TopoJSON with true geographic coordinates. 
+Bornholm is not repositioned in the file and will be drawn as an inset at the visualisation stage.
