@@ -5,11 +5,13 @@
 \label{sec:data}
 
 \subsection{Source}
-
-TODO --- State where the data comes from and provide links to the data
-sources (e.g.\ Statistics Denmark, \url{https://www.dst.dk/en}). Mention
-the specific tables/APIs used and the date of retrieval.
-
+Data used in the project comes from official public registers maintained by Statistics Denmark (\url{https://www.dst.dk/en}) 
+and was retrieved via the public StatBank Denmark database (\url{https://www.statbank.dk}). The dataset combines two main statistical tables with spatial data:
+\begin{itemize}
+\item \textbf{EJEN77 (Sales of real property by type of transfer, key figures, category of real property, region and time)}: Quarterly dataset recording property sales transactions broken down by region, property category including one-family houses and owner-occupied flats and key indicators, such as number of transactions included in the calculation and average price per property in DKK. Direct link to the table: \url{https://www.statbank.dk/EJEN77}.
+\item \textbf{INDKF111 (Income for families by type of income, family type, unit, region and time)}: Yearly dataset reporting family income broken down by region and family type: all families, couples and singles, income category with both disposable income after tax and pre-tax income. Direct link to the table: \url{https://www.statbank.dk/INDKF111}.
+\item \textbf{Geospatial data (NUTS-3 / landsdele administrative boundaries)}: The polygons of the 11 Danish provinces (landsdele) used to generate the boundary map were obtained from the official Danish administrative division dataset (DAGI – Danmarks Administrative Geografiske Inddeling, provided by \url{https://data-science.dk/}) and processed into TopoJSON format (landsdele.topo.json). Direct link to the table: \url{https://data-science.dk/datasat/gis/admin/aktuel-admin/danmarks-landsdele-vektor/}.
+\end{itemize}
 \subsection{Description}
 
 The main dataset (\texttt{affordability\_annual.csv}) covers the years
