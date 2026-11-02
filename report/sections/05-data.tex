@@ -12,8 +12,8 @@ and was retrieved via the public StatBank Denmark database (\url{https://www.sta
 \item \textbf{INDKF111 (Income for families by type of income, family type, unit, region and time):} Yearly dataset reporting family income broken down by region and family type: all families, couples and singles, income category with both disposable income after tax and pre-tax income. Direct link to the table: \url{https://www.statbank.dk/INDKF111}.
 \item \textbf{Geospatial data (NUTS-3 / landsdele administrative boundaries):} The polygons of the 11 Danish provinces (landsdele) used to generate the boundary map were obtained from the official Danish administrative division dataset (DAGI – Danmarks Administrative Geografiske Inddeling, provided by \url{https://data-science.dk/}) and processed into TopoJSON format (landsdele.topo.json). Direct link to the table: \url{https://data-science.dk/datasat/gis/admin/aktuel-admin/danmarks-landsdele-vektor/}.
 \end{itemize}
-\subsection{Description}
 
+\subsection{Description}
 The main dataset constitutes a balanced data panel covering the years 1995--2024. After aggregating quarterly housing data into annual figures and combining it with income data, the sample size is determined using four grouping variables:
 \begin{itemize}
   \item \textbf{30 years}
@@ -21,8 +21,9 @@ The main dataset constitutes a balanced data panel covering the years 1995--2024
   \item \textbf{2 property types}
   \item \textbf{3 household types}
 \end{itemize}
-\iffalse TODO: not sure if I used correct referencing \fi
-It sums up to 1980 records of data based on the disposable income and every record is described by the variables listed in Table \ref{tab:variables}.
+It sums up to 1980 records of data, and every record is described by the variables listed in Table \ref{tab:variables}.
+
+Income is reported in two forms by Statistics Denmark. Pre-tax income is the family's total income before taxes, whereas disposable income is the income remaining after taxes and other deductions. Every record therefore contains both measures and the corresponding price-to-income ratios: the disposable-income ratio reflects the purchasing power available to households, while the pre-tax ratio is unaffected by changes in the tax system.
 
 \begin{table}[H]
 \centering
@@ -33,32 +34,30 @@ It sums up to 1980 records of data based on the disposable income and every reco
 \textbf{Variable} & \textbf{Type} & \textbf{Description} \\
 \midrule
 \texttt{year}          & integer     & Year in which the data was recorded (1995--2024). \\
-\texttt{nuts3}         & categorical & NUTS-3 code of the region (e.g.\ \texttt{DK011}). \\
-\texttt{landsdel}      & categorical & Danish region / geographical area. \\
+\texttt{nuts3}         & categorical & NUTS-3 code of the province (e.g.\ \texttt{DK011}). \\
+\texttt{landsdel}      & categorical & Danish province / geographical area. \\
 \texttt{property\_type}& categorical & Property type: \texttt{one\_family\_house}, \texttt{owner\_occupied\_flat}. \\
 \texttt{family\_type}  & categorical & Household type: \texttt{all\_families}, \texttt{couples}, \texttt{singles}. \\
 \texttt{n\_sales}      & integer     & Number of property sales recorded. \\
 \texttt{avg\_price\_dkk}& numeric    & Average property price in DKK. \\
 \texttt{n\_families}   & integer     & Number of families represented. \\
-\texttt{avg\_income\_dkk}& numeric   & Average (disposable) income in DKK. \\
-\texttt{ratio}         & numeric     & Affordability ratio, \texttt{avg\_price\_dkk} / \texttt{avg\_income\_dkk}. \\
+\texttt{avg\_disposable\_\allowbreakincome\_dkk}& numeric & Average disposable (after-tax) income in DKK. \\
+\texttt{avg\_pretax\_\allowbreakincome\_dkk}& numeric & Average pre-tax income in DKK. \\
+\texttt{ratio\_disposable}& numeric  & Affordability ratio, \texttt{avg\_price\_dkk} / \texttt{avg\_disposable\_income\_dkk}. \\
+\texttt{ratio\_pretax} & numeric     & Affordability ratio, \texttt{avg\_price\_dkk} / \texttt{avg\_pretax\_income\_dkk}. \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\iffalse TODO: this might be removed as I already mentioned it in the data source \fi
-\noindent In addition, \texttt{landsdele.topo.json} provides the TopoJSON
-geometries of the Danish \emph{landsdele}, used for the choropleth map.
+\noindent In addition, \texttt{landsdele.topo.json} provides the TopoJSON geometries of the Danish \emph{landsdele}, used for the choropleth map.
 
-\iffalse TODO --- state the exact number of records and any special
-feature of the data (missing values, suppressed cells, unbalanced panels,
-nominal vs.\ real prices, \ldots). \fi
+\iffalse TODO --- state the exact number of records and any special feature of the data (missing values, suppressed cells, unbalanced panels, nominal vs.\ real prices, \ldots). \fi
 \iffalse TODO: special features of the dataset needs a sentence or two of introduction and I am not sure where they should be placed \fi
 Special features of the dataset:
 \begin{itemize}
-  \item \textbf{Data gaps and zero-sale quarters:} In the raw quarterly data from the \texttt{EJEN77} dataset, quarters in which no transactions were recorded in a given category for a specific region are coded as having a sales volume of 0 and an average price of 0. In our dataset, this situation occurred exclusively on the island of Bornholm in the \texttt{owner\_occupied\_flat} category during four individual quarters: 2012Q4, 2013Q4, 2016Q3, and 2020Q3. Since transactions took place in the remaining three quarters of each of those years, applying a sales-weighted average allowed us to calculate complete annual averages without missing data (NA) in the final panel.   
-  \item \textbf{Averages Instead of Medians and the Composition Effect}: The publicly available cross-tabulation tables in StatBank provide arithmetic means rather than medians. For this reason, the variable \texttt{avg\_price\_dkk} is sensitive to outliers (e.g., sales of very expensive residences) and to changes in the structure of properties sold in a given year.
-  \item \textbf{Nominal prices and the absence of the need for inflation adjustment:} Both real estate prices and household incomes are expressed in current prices for a given year. Since the main housing affordability indicator (Price-to-Income ratio) is the quotient of two nominal values from the same period ($R_{r,t} = \bar{p}_{r,t} / \bar{y}_{r,t}$), the inflation factor is mathematically eliminated, allowing for a direct comparison of the indicator over time. However, it is important to note that the time series charts for \texttt{avg\_price\_dkk} and \texttt{avg\_income\_dkk} themselves reflect nominal values.
+  \item \textbf{Data gaps and zero-sale quarters:} In the raw quarterly data from the \texttt{EJEN77} dataset, quarters in which no transactions were recorded in a given category for a specific region are coded as having a sales volume of 0 and an average price of 0. In our dataset, this situation occurred exclusively on the island of Bornholm in the \texttt{owner\_occupied\_flat} category during four individual quarters: 2012Q4, 2013Q4, 2016Q3, and 2020Q3. Since transactions took place in the remaining three quarters of each of those years, applying a sales-weighted average allowed us to calculate complete annual averages without missing data (NA) in the final panel.
+  \item \textbf{Averages instead of medians and the composition effect}: The publicly available cross-tabulation tables in StatBank provide arithmetic means rather than medians. For this reason, the variable \texttt{avg\_price\_dkk} is sensitive to outliers (e.g., sales of very expensive residences) and to changes in the structure of properties sold in a given year.
+  \item \textbf{Nominal prices and the absence of the need for inflation adjustment:} Both real estate prices and household incomes are expressed in current prices for a given year. Since the main housing affordability indicator (Price-to-Income ratio) is the quotient of two nominal values from the same period ($R^{\,k}_{r,t} = \bar{p}_{r,t} / \bar{y}^{\,k}_{r,t}$, with $k$ denoting disposable or pre-tax income), the inflation factor is mathematically eliminated, allowing for a direct comparison of the indicator over time. However, it is important to note that the time series charts for \texttt{avg\_price\_dkk}, \texttt{avg\_disposable\_income\_dkk} and \texttt{avg\_pretax\_income\_dkk} themselves reflect nominal values.
 \end{itemize}
 
 \subsection{Data Processing}
