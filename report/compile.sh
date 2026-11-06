@@ -61,7 +61,7 @@ if ! build; then
   if ! build; then
     echo >&2
     echo "Compilation FAILED. Errors:" >&2
-    grep -E '^!|^l\.[0-9]+' "$log" | head -20 | sed 's/^/  /' >&2
+    grep -E '^!|^[^ ]*\.(tex|sty|cls):[0-9]+:|^l\.[0-9]+' "$log" | head -20 | sed 's/^/  /' >&2
     echo >&2
     echo "Full log: $(pwd)/$MAIN.log" >&2
     exit 1
