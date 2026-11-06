@@ -1,0 +1,7 @@
+pandas
+numpy
+plotly
+kaleido>=0.2.1
+geopandas
+jupyter
+nbformat
