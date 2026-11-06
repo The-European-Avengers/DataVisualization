@@ -5,33 +5,27 @@
 \section{Project Objectives}
 \label{sec:objectives}
 
+We expect that provinces with higher housing prices also have higher incomes, but that housing prices have risen faster than incomes since 1995, so housing has become less affordable over time. Instead of testing this directly, we use it as a starting point and explore it through the questions below.
+
+Throughout the report, we measure affordability as the price-to-income ratio: the average price of a property divided by the average annual family income in the same province and year (Section~\ref{sec:processing}). A higher ratio means housing is less affordable. We chose this measure because it is simple, easy to compare across provinces and years, and widely used in housing research, for example by the OECD in its housing price statistics.
+
 The dashboard is built to answer the following questions.
 
 \begin{enumerate}
-  \item \textbf{How did house prices and income evolve over time?}
-    \begin{enumerate}
-      \item What is the trend of house prices in the different Danish provinces
-            (\emph{landsdele})?
-      \item How did affordability evolve for couples compared to singles,
-            both for Denmark as a whole and per province?
-    \end{enumerate}
-  \item \textbf{Is it better to live in areas with a zip code above 5000 or not
-        (DK1 vs.\ DK2)?}
-  \item \textbf{Is it worth living in Copenhagen?} We expect average income to be
-        higher there, but house prices to be higher as well.
+  \item \textbf{How have house prices and income evolved in Denmark since 1995?}\\
+  We want to see whether prices and incomes have grown at the same pace, or whether prices have pulled away from incomes. Both series are indexed to 1995 so they can be compared on the same scale. (Figure~\ref{fig:graph1})
+
+  \begin{enumerate}
+    \item \textbf{What is the trend of house prices in the different provinces (\textit{landsdele})?}\\
+    We want to find out whether all provinces follow the national trend, or whether some have grown much faster than others. This is shown as a choropleth map animated over the years and as small multiples with one line chart per province. (Figures~\ref{fig:graph2} and~\ref{fig:graph7})
+
+    \item \textbf{How has affordability changed for couples compared to singles, in Denmark as a whole and in the different provinces?}\\
+    A couple and a single person face the same price but with very different incomes. We want to see how large this difference is, and whether it has grown over time. This is shown as small multiples of the price-to-income ratio, with one line for couples and one for singles in each province. (Figure~\ref{fig:graph3})
+  \end{enumerate}
+
+  \item \textbf{Is housing more affordable east or west of the Great Belt?}\\
+  We split the provinces by zip code: below 5000 (Zealand, Lolland-Falster and Bornholm) and 5000 or above (Funen and Jutland). We want to see whether there is a clear difference in affordability between the two parts of the country, and whether that difference has changed since 1995. (Figures~\ref{fig:graph4} and~\ref{fig:graph5})
+
+  \item \textbf{Is it worth living in Copenhagen?}\\
+  We expect both average income and house prices to be higher in Byen K\o benhavn than in the rest of the country. We want to find out whether the higher income makes up for the higher prices, and whether the affordability gap between Copenhagen and the other provinces is growing over time. Since most purchases in Byen K\o benhavn are flats, owner-occupied flats are included here. (Figures~\ref{fig:graph6} and~\ref{fig:graph8})
 \end{enumerate}
-
-\noindent TODO --- Add, for each question, what you would like to learn and
-accomplish, and which visualization(s) in Section~\ref{sec:visualization}
-address it.
-
-Intro text
-We expect that provinces with higher housing prices also have higher incomes, but that housing prices have risen faster than incomes since 1995, so housing has become less affordable over time. Instead of testing this directly, we use it as a starting point and explore it through the following questions. Throughout the report, we measure affordability as the price-to-income ratio: the average house price divided by the average yearly income. A higher ratio means housing is less affordable.
-
-Questions
-
-How have house prices and income evolved in Denmark since 1995?
-1.1 What is the trend of house prices in the different provinces?
-1.2 How has affordability changed for couples compared to singles, in Denmark as a whole and in the different provinces?
-Is housing more affordable east or west of the Great Belt (zip codes below or above 5000)?
-Is it worth living in Copenhagen? Is the affordability gap between Copenhagen and the other provinces growing over time?
