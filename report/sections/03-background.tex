@@ -4,13 +4,51 @@
 \section{Background and Motivation}
 \label{sec:background}
 
-TODO --- Discuss the motivations and reasons for choosing this project,
-especially any background or research interests that influenced the
-decision. Useful points to cover:
+Housing affordability is one of the most immediate economic questions facing
+anyone who is about to finish a degree and settle somewhere. As a group of
+master's students in Denmark, the choice of where to live after graduation is
+not an abstract problem: it determines which part of the country is realistic
+to build a life in, and it is usually made on the basis of anecdote rather than
+evidence. This is what drew us to the topic. We wanted to replace the common
+impressions about Danish housing, that it has become unaffordable, that
+Copenhagen is a special case, that the provinces are cheap, with something we
+could actually examine.
 
-\begin{itemize}
-  \item Why housing affordability in Denmark is a relevant topic.
-  \item Personal/academic interest of the group members in the subject.
-  \item What is already known or publicly discussed about the problem.
-  \item Why a visual, interactive approach adds value over plain tables.
-\end{itemize}
+The public discussion of Danish housing is normally conducted in terms of the
+national average price, or the year-on-year change in it. That framing is
+convenient but it conceals the two things that matter most to the person making
+the decision. The first is \emph{where}: a national average cannot distinguish a
+market that has quadrupled from one that has merely kept pace with incomes, and
+it is precisely that difference which determines whether moving is worthwhile.
+The second is \emph{who}: a price is only meaningful relative to the income of
+the household that has to carry it, and a single person and a couple face the
+same price with very different means. Neither dimension survives aggregation
+into a single national figure, and both are central to the questions we set out
+in Section~\ref{sec:objectives}.
+
+Denmark is an unusually good place to ask these questions, because the relevant
+registers are public, long-running and consistently defined. Statistics Denmark
+publishes property transactions and family incomes on a compatible regional
+breakdown, the eleven \emph{landsdele}, going back to 1995, which makes it
+possible to put prices and incomes on the same footing over three decades rather
+than comparing them indirectly. A preliminary inspection of the combined data,
+described in Section~\ref{sec:data}, confirmed that the aggregate picture is
+indeed hiding the interesting structure. In 1995 the price of a one-family house
+ranged from roughly $2.3$ to $6.3$ times the average family's annual disposable
+income depending on the landsdel; by 2024 the same measure ranged from about
+$3.5$ to $15.2$. The gap between the most and least affordable part of the
+country, in other words, widened considerably over the period, which is not
+something that can be read off a national series at all.
+
+This combination of a spatial dimension, a long time dimension and several
+household and property categories is what makes the problem a visualisation
+problem rather than a table. Three interacting dimensions cannot be presented
+convincingly as numbers on a page: the regional pattern asks for a map, the
+thirty-year development asks for time series and for animation to make the
+divergence visible as it happens, and the comparison between household types
+asks for small multiples that hold the price constant while the income changes.
+Our own background in software and data engineering made this an attractive
+project for a further reason, namely that it required building the whole
+pipeline, from the raw register exports through the joining and cleaning
+described in Section~\ref{sec:data} to an interactive dashboard, rather than
+visualising a dataset that had already been prepared for us.
