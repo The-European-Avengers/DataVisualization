@@ -1,0 +1,105 @@
+/* Design tokens. Components reference these by role, never raw hex. */
+:root {
+  /* Light "paper" surfaces — the chart pages */
+  --surface-1: #fcfcfb;
+  --surface-2: #f4f3ef;
+  --surface-3: #ecebe6;
+
+  /* Dark surfaces — the hero and the drawer above the globe */
+  --surface-dark: #1a1a19;
+  --surface-dark-2: #232321;
+
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-inverse: #f0efec;
+  --text-inverse-muted: #c3c2b7;
+
+  --grid: #e6e5e1;
+  --border: #dcdbd6;
+  --border-dark: #38372f;
+
+  --accent: #2a78d6;
+  --accent-dark: #3987e5;
+  --warn: #eda100;
+
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --drawer-w: 300px;
+  --topbar-h: 56px;
+
+  --radius: 6px;
+  --shadow-1: 0 1px 2px rgb(11 11 11 / 6%), 0 4px 12px rgb(11 11 11 / 6%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Every numeral in the product is monospaced and tabular, so digits line up
+   in tables, tooltips and while the year animates. */
+.num,
+td.num,
+input[type='range'] + .num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
