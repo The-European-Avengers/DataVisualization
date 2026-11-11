@@ -9,6 +9,13 @@ export type GlobeMetric =
   | 'avg_price_dkk'
   | 'n_families'
 
+/**
+ * The global controls a view can respond to. Each view declares the subset it
+ * actually reads so the control bar can hide the rest — a select that changes
+ * nothing is worse than no select at all.
+ */
+export type ControlKey = 'property' | 'family' | 'basis' | 'year' | 'region'
+
 export interface Controls {
   year: number
   property: PropertyType

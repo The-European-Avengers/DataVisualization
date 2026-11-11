@@ -13,7 +13,7 @@ import { useControls } from '../state/useControls'
 import { chartBySlug } from './registry'
 import type { Side } from '../data/types'
 
-const M = { top: 12, right: 70, bottom: 46, left: 52 }
+const M = { top: 26, right: 70, bottom: 46, left: 52 }
 const SIDES: Side[] = ['east', 'west']
 
 interface Point {

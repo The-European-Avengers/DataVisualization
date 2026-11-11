@@ -12,12 +12,12 @@ import { useControls } from '../state/useControls'
 import { chartBySlug } from './registry'
 import type { Row } from '../data/types'
 
-const M = { top: 14, right: 16, bottom: 86, left: 52 }
+const M = { top: 26, right: 16, bottom: 86, left: 52 }
 
 export function HouseVsFlat() {
   const def = chartBySlug.get('house-vs-flat')!
   const { rows, provinceByCode } = useDataset()
-  const [controls, set] = useControls()
+  const [controls] = useControls()
   const { tip, show, hide } = useTip()
 
   const houses = slice(rows, {
@@ -152,20 +152,6 @@ export function HouseVsFlat() {
         return (
           <div className="chart-plot">
             <div className="chart-toggles">
-              <label>
-                <span>Province</span>
-                <select
-                  value={controls.region ?? ''}
-                  onChange={(e) => set({ region: e.target.value || null })}
-                >
-                  <option value="">All provinces</option>
-                  {all.map((d) => (
-                    <option key={d.nuts3} value={d.nuts3}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <ul className="legend">
                 <li>
                   <span

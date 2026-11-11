@@ -61,7 +61,7 @@ export function Home() {
       </div>
 
       <div className="hero-filters">
-        <ControlBar showYear={false} />
+        <ControlBar uses={metric.uses} />
       </div>
     </div>
   )

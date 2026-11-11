@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import type { ControlKey } from '../state/useControls'
 import { BoxPlot } from './BoxPlot'
 import { Bubble } from './Bubble'
 import { Choropleth } from './Choropleth'
@@ -22,6 +23,13 @@ export interface ChartDef {
   question: string
   /** The definition and caveats behind the info button. */
   info: string
+  /**
+   * The global controls this chart actually reads. Anything left out is hidden
+   * from the control bar on this page: several charts vary one dimension
+   * themselves (house against flat, couples against singles) or draw all thirty
+   * years at once, so the matching control would do nothing here.
+   */
+  uses: ControlKey[]
   Component: ComponentType
 }
 
@@ -34,6 +42,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Price-to-income ratio by province',
     question: '1a. What is the trend of house prices in the different provinces?',
     info: 'Colour shows the average sale price divided by the average annual family income in the same province and year. Darker means less affordable. Bornholm is drawn as an inset because it is too small to read in place.',
+    uses: ['property', 'family', 'basis', 'year', 'region'],
     Component: Choropleth,
   },
   {
@@ -44,6 +53,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Price-to-income ratio, selected year',
     question: '2. Is housing more affordable east or west of the Great Belt?',
     info: 'Bars are sorted by the price-to-income ratio. Colour marks which side of the Great Belt the province lies on: east is Zealand, Lolland-Falster and Bornholm (zip codes below 5000), west is Funen and Jutland.',
+    uses: ['property', 'family', 'basis', 'year'],
     Component: Ranking,
   },
   {
@@ -54,6 +64,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Price-to-income ratio, 1995–2024',
     question: '1 & 1a. How have prices and income evolved, and where?',
     info: 'Eleven provinces exceed the eight-colour limit for colourblind-safe categorical palettes, so every line is drawn in grey and the ones you hover or select are highlighted and labelled directly.',
+    uses: ['property', 'family', 'basis', 'region'],
     Component: RatioLines,
   },
   {
@@ -64,6 +75,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Price and income indexed to 1995 = 100',
     question: '1. How have house prices and income evolved since 1995?',
     info: 'Indexing to 1995 = 100 means each line shows growth relative to its own 1995 value, not kroner. A price line at 400 means prices quadrupled. Both series are in current prices; because the index is a ratio to the same province’s own base year, no inflation adjustment is needed to compare the two shapes.',
+    uses: ['property', 'family', 'basis'],
     Component: SmallMultiples,
   },
   {
@@ -74,6 +86,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Log-log, bubble size = sales',
     question: '3. Is it worth living in Copenhagen?',
     info: 'Diagonal reference lines mark constant price-to-income ratios (3x, 5x, 10x). A bubble drifting above a diagonal means affordability worsened. Values can be normalised by the number of families, and the axes can be swapped.',
+    uses: ['property', 'family', 'basis', 'year', 'region'],
     Component: Bubble,
   },
   {
@@ -84,6 +97,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Price-to-income ratio, rows sorted by 2024',
     question: '1 & 1a. How have prices evolved, and where?',
     info: 'The same measure as the map, laid out as province by year so the break in the early 2000s and the 2020s surge are visible in one view.',
+    uses: ['property', 'family', 'basis', 'year'],
     Component: Heatmap,
   },
   {
@@ -94,6 +108,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Spread of the eleven ratios, per year',
     question: '1. How has the spread between provinces changed?',
     info: 'Each box summarises the eleven provincial ratios in that year. A rising median means the whole country got less affordable; a taller box means provinces drifted further apart.',
+    uses: ['property', 'family', 'basis', 'year'],
     Component: BoxPlot,
   },
   {
@@ -104,6 +119,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Price-to-income ratio, couples against singles',
     question: '1b. How has affordability changed for couples compared to singles?',
     info: 'Ratios use the same average sale price for every household type, so they show what the average home would cost relative to each group’s income, not what each group actually pays. Singles more often buy smaller or cheaper homes, or rent, so their figure is hypothetical.',
+    uses: ['property', 'basis', 'year'],
     Component: DumbbellFamily,
   },
   {
@@ -114,6 +130,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Price-to-income ratio by property type',
     question: '3. Is it worth living in Copenhagen?',
     info: 'In Byen København most purchases are flats and houses are a thin market (around a thousand sales a year), so the house figure there should be read with caution.',
+    uses: ['family', 'basis', 'year', 'region'],
     Component: HouseVsFlat,
   },
   {
@@ -124,6 +141,7 @@ export const CHARTS: ChartDef[] = [
     subtitle: 'Sales-weighted price-to-income ratio',
     question: '2. Is housing more affordable east or west of the Great Belt?',
     info: 'Provinces are pooled with a sales-weighted mean, so a province with more transactions counts more. Bornholm is grouped with the east. This chart is also the AI-generated graph required by the course.',
+    uses: ['property', 'family', 'basis'],
     Component: EastWest,
   },
 ]

@@ -11,7 +11,7 @@ import { SERIES } from '../design/palette'
 import { useControls } from '../state/useControls'
 import { chartBySlug } from './registry'
 
-const M = { top: 14, right: 16, bottom: 44, left: 52 }
+const M = { top: 26, right: 16, bottom: 44, left: 52 }
 
 interface Box {
   year: number

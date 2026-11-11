@@ -35,7 +35,7 @@ export function ChartPage() {
       </div>
 
       <div className="control-bar-wrap">
-        <ControlBar />
+        <ControlBar uses={def.uses} />
       </div>
 
       <def.Component />

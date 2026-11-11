@@ -14,7 +14,7 @@ import { useControls } from '../state/useControls'
 import { chartBySlug } from './registry'
 import type { Row } from '../data/types'
 
-const M = { top: 12, right: 150, bottom: 46, left: 52 }
+const M = { top: 26, right: 150, bottom: 46, left: 52 }
 
 export function RatioLines() {
   const def = chartBySlug.get('ratio-over-time')!

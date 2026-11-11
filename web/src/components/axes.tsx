@@ -79,8 +79,16 @@ export function AxisLeft({
           </text>
         </g>
       ))}
+      {/*
+        Sits 12px above the plot, but never so high that the SVG edge clips it:
+        the label is middle-baselined at 11px, so y must stay clear of the top.
+      */}
       {label && (
-        <text className="axis-title axis-title-y" x={x - 8} y={scale.range()[1] - 12}>
+        <text
+          className="axis-title axis-title-y"
+          x={x - 8}
+          y={Math.max(scale.range()[1] - 12, 10)}
+        >
           {label}
         </text>
       )}
