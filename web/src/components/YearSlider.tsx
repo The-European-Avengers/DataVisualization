@@ -1,27 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
-import { useControls } from '../state/useControls'
 import { useDataset } from '../data/DataContext'
+import { SPEEDS, useAnimatedYear, usePlayback } from '../state/playback'
 
-const STEP_MS = 420
-
-/** Year scrubber shared by the globe and the chart pages. */
+/**
+ * Year scrubber shared by the globe and the chart pages.
+ *
+ * The thumb follows the *continuous* playhead rather than the selected
+ * integer year, so it glides during playback instead of hopping thirty times,
+ * and a drag moves it under the cursor with no step quantisation. Releasing
+ * lands on the nearest year — the data is annual — which the clock eases into
+ * rather than snapping.
+ */
 export function YearSlider({ play = true }: { play?: boolean }) {
   const { meta } = useDataset()
-  const [controls, set] = useControls()
-  const [playing, setPlaying] = useState(false)
+  const clock = usePlayback()
+  const frac = useAnimatedYear()
   const first = meta.years[0]
   const last = meta.years[meta.years.length - 1]
-  const yearRef = useRef(controls.year)
-  yearRef.current = controls.year
-
-  useEffect(() => {
-    if (!playing) return
-    const id = setInterval(() => {
-      const next = yearRef.current >= last ? first : yearRef.current + 1
-      set({ year: next })
-    }, STEP_MS)
-    return () => clearInterval(id)
-  }, [playing, first, last, set])
 
   return (
     <div className="year-slider">
@@ -29,12 +23,13 @@ export function YearSlider({ play = true }: { play?: boolean }) {
         <button
           type="button"
           className="play"
-          aria-pressed={playing}
-          onClick={() => setPlaying((v) => !v)}
+          aria-pressed={clock.playing}
+          onClick={clock.toggle}
+          title={clock.playing ? 'Pause' : 'Play through the years'}
         >
-          <span aria-hidden="true">{playing ? '❚❚' : '▶'}</span>
+          <span aria-hidden="true">{clock.playing ? '❚❚' : '▶'}</span>
           <span className="visually-hidden">
-            {playing ? 'Pause the year animation' : 'Play the year animation'}
+            {clock.playing ? 'Pause the year animation' : 'Play the year animation'}
           </span>
         </button>
       )}
@@ -42,15 +37,32 @@ export function YearSlider({ play = true }: { play?: boolean }) {
         type="range"
         min={first}
         max={last}
-        step={1}
-        value={controls.year}
+        step={0.01}
+        value={frac}
         aria-label="Year"
+        aria-valuetext={String(Math.round(frac))}
+        onPointerDown={clock.stop}
         onChange={(e) => {
-          setPlaying(false)
-          set({ year: Number(e.target.value) })
+          clock.stop()
+          clock.scrub(Number(e.target.value))
         }}
       />
-      <output className="num year-value">{controls.year}</output>
+      <output className="num year-value">{Math.round(frac)}</output>
+      {play && (
+        <div className="speed-switch" role="group" aria-label="Animation speed">
+          {SPEEDS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={clock.speed === s}
+              onClick={() => clock.setSpeed(s)}
+              title={`${s}× speed`}
+            >
+              {s}×
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -25,3 +25,12 @@ export const BASIS_LABEL: Record<string, string> = {
   disposable: 'Disposable (after tax)',
   pretax: 'Pre-tax',
 }
+
+export const NORM_LABEL: Record<string, string> = {
+  none: 'Raw counts',
+  per_1k_families: 'Per 1,000 families',
+}
+
+/** Growth as a multiplier of the 1995 level: 100 -> 1.0x, 400 -> 4.0x. */
+export const fmtMultiplier = (indexValue: number) =>
+  `${(indexValue / 100).toFixed(1)}×`

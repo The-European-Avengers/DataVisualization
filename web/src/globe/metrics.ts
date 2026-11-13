@@ -15,6 +15,12 @@ export interface MetricDef {
    * property type, so the other selects are hidden rather than left inert.
    */
   uses: ControlKey[]
+  /**
+   * True for counts, which are meaningless to compare between provinces of
+   * very different size and so can be divided by the families living there.
+   * Averages and ratios are already per-family and are left alone.
+   */
+  normalisable: boolean
   available: boolean
   note?: string
 }
@@ -27,16 +33,19 @@ export const METRICS: MetricDef[] = [
     axis: 'Price-to-income ratio',
     value: (r, b) => ratioOf(r, b),
     format: fmtRatio,
+    normalisable: false,
     available: true,
   },
   {
     key: 'n_sales',
-    uses: ['property'],
+    uses: ['property', 'norm'],
     label: 'Sales',
     axis: 'Properties sold',
     value: (r) => r.n_sales,
     format: fmtInt,
+    normalisable: true,
     available: true,
+    note: 'Normalise by families to compare market activity between a province of 600,000 families and one of 20,000.',
   },
   {
     key: 'income',
@@ -45,6 +54,7 @@ export const METRICS: MetricDef[] = [
     axis: 'Average family income',
     value: (r, b) => incomeOf(r, b),
     format: fmtDkk,
+    normalisable: false,
     available: true,
   },
   {
@@ -54,17 +64,19 @@ export const METRICS: MetricDef[] = [
     axis: 'Average sale price',
     value: (r) => r.avg_price_dkk,
     format: fmtDkk,
+    normalisable: false,
     available: true,
   },
   {
     key: 'n_families',
     uses: ['family'],
     label: 'Families',
-    axis: 'Families in the province',
+    axis: 'Number of families',
     value: (r) => r.n_families,
     format: fmtInt,
+    normalisable: false,
     available: true,
-    note: 'Population is not in the dataset yet; families is the available denominator. See PLAN.md §3.2.',
+    note: 'The dataset counts families, not residents, so this is the number of families in the province — the denominator behind every income figure here, and the closest thing to a population measure the source provides.',
   },
 ]
 

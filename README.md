@@ -44,9 +44,20 @@
 
 
 ### Feedback
-- Improve the navigability of the dashboard
-- Fit the chart in the screen
-- Improve animation speed and smoothness in the charts
-- Add Population data 
-- Add normalization
-- Smooth zoom controls
+- Improve the navigability of the dashboard - Dot navigation on the right side of the screen to jump to each chart, with the globe on the top one. Hover ing over the dot shows the chart title and clicking on it jumps to that chart. The dot for the current chart is highlighted. Also arrows control to go to preious and next chart. The dot navigation is always visible, even when scrolling down the page. Maybe the arrow control is hide and appears when hovering over the dot navigation.
+- Fit the chart in the screen. Make it resposive to the screen size. The chart should be always visible without scrolling down the page. The chart should be resizable to fit the screen size.
+- Improve animation speed and smoothness in the charts, when the playing the animation. The animation should be smooth and not jumpy. The animation should be fast enough to show the trend but not too fast to be confusing.
+- Add colors to the animated bubble scatter chart as in the jupyter notebook. The colors should be consistent with the other charts. The colors should be distinguishable and not too similar. The colors should be colorblind friendly. Also review all the colors in the whole charts to be consistent and colorblind friendly. The colors should be distinguishable and not too similar. When doing the color palette also update the info text to be consisten too.
+- Add Population data ( in the dataset is the number of families, so the name should not be population but number of families) to the globe view.
+- Add normalization options to all the charts that are needed with a toggle.
+- Smooth zoom controls in the globe view. The zoom should be smooth and not jumpy. The zoom should be fast enough to show the details but not too fast to be confusing.
+- Improve resolution of spikes in the globe view
+- In the chart 2 - Improve the explanation on how was divided, so explain what did we consider as east and west. And there is a empty space on the right bottom corner so maybe add the map of denmark with less opacity with the east and west areas highlighted. Also in property dropdown include all properties. And in the income incude both and then on the chart show both bars for each region. 
+- In the chart 3 - Keep the name of the region on the right side of the chart, so when the user hover over the line it shows the name highlighted but all the names appear always on the side. Also add the option to show the lines for all the regions or only the selected region. 
+- In the chart 4 - Add hover on the lines to show the values of the index for each year. Change the scale to multiplier (2x, 3x, 4x, 5x, 6x, 7x, 8x, 9x, 10x) instead of index. 
+- In the chart 5 - In the porperty put both and then on the chart show a single bubble combinen both values for each region. Also add the option to show the bubbles for all the regions or only the selected region.
+- Add a new page with charts and a video animated with the explanation, explaining how the trend went and why it happend (crisis 2008 and regulation in 2011 (tax)).
+- Add a new page where the user can create its own chart with the data and display it. So the user choose the type of plot and the variables
+- In nthe chart 10 - Add also the map and explanation about east and west
+- To be consisent review and change if needed that all the charts with provinces add the option to select the province and show only that province in the chart. Also add the option to show all the provinces in the chart.
+- Check that all the transistion when using the slidebar are smooth and not jumpy

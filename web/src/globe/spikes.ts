@@ -22,7 +22,22 @@ import {
 export const SPIKE_RAMP = ['#1e1150', '#3f6fe0', '#e05bb0', '#ffffff'] as const
 
 /** Base radius of a spike, in globe-radius units. */
-const SPIKE_RADIUS = 0.0022
+const SPIKE_RADIUS = 0.0026
+
+/**
+ * Sides on the cone. Twelve left a visible silhouette of flat facets on the
+ * tall spikes once the camera sits this close to the surface; forty-eight is
+ * smooth at every zoom the controls allow and still trivial geometry — eleven
+ * spikes share this one buffer, so the whole layer is ~1k triangles.
+ */
+const RADIAL_SEGMENTS = 48
+
+/**
+ * Height segments. The colour ramp is evaluated per fragment so one segment
+ * would be enough for the shading, but subdividing the length keeps the
+ * needle from distorting under the perspective camera near the limb.
+ */
+const HEIGHT_SEGMENTS = 8
 
 const vertexShader = /* glsl */ `
   varying float vH;
@@ -48,14 +63,22 @@ const fragmentShader = /* glsl */ `
     col = mix(col, c2, smoothstep(0.45, 0.82, t));
     col = mix(col, c3, smoothstep(0.82, 1.0, t));
     // Fade into the surface so the spike grows out of the map rather than
-    // sitting on it as a hard-edged object.
-    float a = 0.15 + 0.85 * vH;
+    // sitting on it as a hard-edged object, and taper the very tip out
+    // instead of ending on one hard-lit pixel that shimmers as it moves.
+    float a = (0.12 + 0.88 * vH) * (1.0 - smoothstep(0.93, 1.0, vH) * 0.55);
     gl_FragColor = vec4(col, a);
   }
 `
 
 /** One unit cone, shared by every spike; size comes from the mesh scale. */
-const geometry = new CylinderGeometry(0, 1, 1, 12, 1, true).translate(0, 0.5, 0)
+const geometry = new CylinderGeometry(
+  0,
+  1,
+  1,
+  RADIAL_SEGMENTS,
+  HEIGHT_SEGMENTS,
+  true,
+).translate(0, 0.5, 0)
 
 export function createSpike(): Mesh {
   const material = new ShaderMaterial({
