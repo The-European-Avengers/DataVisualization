@@ -40,3 +40,12 @@
 - Caption with definition 
 - Add extra info of each chart with more explanation in the info button
 - Total sales in west are always more than east
+
+
+
+### Feedback
+- Improve the navigability of the dashboard
+- Fit the chart in the screen
+- Improve animation speed and smoothness in the charts
+- Add Population data 
+- Add normalization
