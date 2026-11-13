@@ -56,6 +56,16 @@ interface SpikeState {
   track: Track
 }
 
+/**
+ * The opening flight is a first impression, not a transition. React unmounts
+ * the globe whenever the reader opens a chart, so without this the whole
+ * cinematic — hold, 2.6s camera flight, staggered spike growth — replayed in
+ * full every single time they came back, roughly four seconds of waiting to
+ * see a view they had already seen. It runs once per page load; every later
+ * visit lands on the finished frame.
+ */
+let introPlayed = false
+
 const prefersReducedMotion = () =>
   typeof matchMedia === 'function' &&
   matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -171,7 +181,7 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
     if (revealedRef.current) return
     revealedRef.current = true
     const now = performance.now()
-    const instant = prefersReducedMotion()
+    const instant = prefersReducedMotion() || introPlayed
     // Shortest first, judged on the final year, so the stagger builds up to
     // the tall Copenhagen spikes rather than opening with them.
     const lastOf = (s: SpikeState) => s.track.heights[s.track.heights.length - 1] ?? 0
@@ -283,11 +293,12 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
     bloomRef.current = bloom
     globe.postProcessingComposer().addPass(bloom)
 
-    if (prefersReducedMotion()) {
+    if (prefersReducedMotion() || introPlayed) {
       flyTo(EYE, LOOK_AT, 0)
       return
     }
 
+    introPlayed = true
     globe.pointOfView(START_POV, 0)
     timerRef.current = setTimeout(() => flyTo(EYE, LOOK_AT, FLIGHT_MS), WIDE_HOLD_MS)
   }, [size.width, size.height, flyTo])

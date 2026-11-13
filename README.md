@@ -67,6 +67,60 @@ Review notes from the professor, and what was done about each.
 | 16 | Every province chart: select a province, or show all | Done — `Province` select plus a `Show: selected only / all provinces` toggle, wired through charts 1–6 and 8–9. Chart 7 (box plot) is excluded on purpose: it summarises the spread *between* provinces, and one province is a number, not a distribution |
 | 17 | Smooth slider transitions | Done — the same continuous playhead as #3; the slider thumb tracks it and eases onto the nearest year on release |
 
+#### Playback and navigation
+
+Three bugs found in review, all in how the year animation interacted with the
+router, all fixed:
+
+- **The animation never auto-starts, and never survives a jump.** Playback stops
+  on every route change, so a page always opens with the slider at rest.
+- **A running animation no longer blocks navigation.** The loop used to push the
+  year into the query string on every step. `setSearchParams` issues a
+  *relative* navigation, which resolves against the pathname its closure last
+  saw — so a click that changed the page was undone by the next step ~400 ms
+  later and the view snapped back. It also forced a full re-render of the app
+  several times a second, which is why it showed up as "we cannot switch the
+  page" on a slower machine and only intermittently on a fast one. The playhead
+  is now the year while it runs; the URL is brought back in step once, on pause.
+- **Stopping is synchronous, and never reads a stale flag.** `stop()` flips the
+  loop's own flag as well as React state, because the state update queues behind
+  whatever is rendering — and a page change is exactly when the main thread is
+  busiest. The flag is written in the Play handler itself rather than by an
+  effect mirroring `playing`: an effect-synced ref is still stale at the moment
+  of a click, so on a slow machine a jump could land in the gap, find the flag
+  false, conclude there was nothing to stop, and carry playback into the next
+  page. The dot rail, the drawer and the pager all stop it on click, and the
+  route-change effect stops it unconditionally as a backstop.
+
+**Charts are finished in their first frame.** Two things used to make a chart
+visibly settle after it opened. The body of the chart frame had no `flex: 1`,
+so it took its height from its own content — which is the SVG, whose height
+comes from measuring the body — and each ResizeObserver pass nudged the chart a
+few pixels larger; the map swelled for about half a second on every open. And
+the year tween, which exists so that dragging the slider reads as one movement,
+also fired on arrival whenever the incoming year differed, so a chart drew
+itself at the year it inherited and then eased onto the right one. The body is
+now a flex child of a bounded column, so the first measurement is the right one,
+and a route change sets the playhead directly instead of animating to it.
+
+**Every view opens stopped, at 2024.** A stop caused by navigation returns the
+playhead to the year the URL carries — 2024 unless one was picked deliberately —
+rather than keeping whatever frame the animation was on. A view should open on a
+year the reader chose, not on the leftover of an animation they walked away
+from. Jumping to another view drops the `year` parameter entirely, so
+every chart opens on 2024 rather than inheriting a year from the view before it
+— the parameter is removed rather than written as `year=2024`, because the
+controls omit any value equal to its default. Every other filter — property,
+household, income, province — still travels. A year is therefore scoped to the
+view it was chosen in; a link copied from that view still carries it and still
+opens on it.
+
+**The globe's opening flight plays once per page load.** React unmounts the
+globe whenever a chart is opened, so the whole cinematic — hold, 2.6 s camera
+flight, staggered spike growth — used to replay in full on every return, about
+four seconds of waiting to see a view already seen. Later visits land on the
+finished frame.
+
 #### Two things worth flagging
 
 **The existing palette was the problem, not just the bubble chart.** Running the

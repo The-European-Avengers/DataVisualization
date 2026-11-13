@@ -19,6 +19,7 @@ import {
   weightedMean,
 } from '../data/selectors'
 import { MUTED, SIDE_COLOR, provinceColor } from '../design/palette'
+import { useAnimatedYear } from '../state/playback'
 import { oneBasis, oneProperty, useControls } from '../state/useControls'
 import type { Row } from '../data/types'
 
@@ -120,6 +121,7 @@ export function Build() {
   const [controls] = useControls()
   const { tip, show, hide } = useTip()
   const [boxRef, size] = useMeasure<HTMLDivElement>()
+  const frac = useAnimatedYear()
 
   const [kind, setKind] = useState<ChartKind>('bar')
   const [yKey, setYKey] = useState('ratio')
@@ -155,7 +157,9 @@ export function Build() {
       ? list.reduce((sum, r) => sum + measure.of(r, basis), 0)
       : weightedMean(list, (r) => measure.of(r, basis))
 
-  const year = controls.year
+  // The playhead, not the committed year: during playback the URL is left
+  // alone, so reading controls.year here would freeze the bars mid-animation.
+  const year = Math.round(frac)
 
   const table = (
     <table className="data-table">

@@ -897,7 +897,18 @@ text.legend-mid {
 .plot-area {
   overflow: auto;
 }
+/*
+  `flex: 1` is what makes the chart appear finished rather than grow into
+  place. Without it the body takes its height from its own content — which is
+  the SVG, whose height comes from measuring the body — so each ResizeObserver
+  pass nudged the chart a few pixels larger and the map visibly swelled for
+  half a second after every open. Being a flex child of a bounded column gives
+  it a definite height in the first layout pass, so the measurement is right
+  the first time and there is nothing to settle.
+*/
 .page-fit .chart-body {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 

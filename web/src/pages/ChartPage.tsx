@@ -1,11 +1,13 @@
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { ControlBar } from '../components/ControlBar'
 import { CHARTS, chartBySlug } from '../charts/registry'
-import { STOPS, stopIndex } from '../nav'
+import { STOPS, searchForJump, stopIndex } from '../nav'
+import { usePlayback } from '../state/playback'
 
 export function ChartPage() {
   const { slug } = useParams()
   const { search, pathname } = useLocation()
+  const clock = usePlayback()
   const def = slug ? chartBySlug.get(slug) : undefined
 
   if (!def) {
@@ -45,14 +47,20 @@ export function ChartPage() {
 
       <nav className="pager" aria-label="Other views">
         {prev ? (
-          <Link to={{ pathname: prev.path, search }}>
+          <Link
+            to={{ pathname: prev.path, search: searchForJump(search) }}
+            onClick={clock.stop}
+          >
             <span aria-hidden="true">←</span> {prev.label}
           </Link>
         ) : (
           <span />
         )}
         {next && (
-          <Link to={{ pathname: next.path, search }}>
+          <Link
+            to={{ pathname: next.path, search: searchForJump(search) }}
+            onClick={clock.stop}
+          >
             {next.label} <span aria-hidden="true">→</span>
           </Link>
         )}

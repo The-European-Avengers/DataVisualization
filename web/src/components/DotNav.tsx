@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { STOPS, stopIndex } from '../nav'
+import { STOPS, searchForJump, stopIndex } from '../nav'
+import { usePlayback } from '../state/playback'
 
 /**
  * The dot rail: one dot per view, pinned to the right edge and always on
@@ -15,15 +16,21 @@ import { STOPS, stopIndex } from '../nav'
 export function DotNav() {
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
+  const clock = usePlayback()
   const current = stopIndex(pathname)
 
   const go = useCallback(
     (index: number) => {
-      const stop = STOPS[index]
-      if (!stop) return
-      navigate({ pathname: stop.path, search })
+      const target = STOPS[index]
+      if (!target) return
+      // Stop before navigating, not after arriving: the provider also stops on
+      // any route change, but that runs an effect later, behind the incoming
+      // page's render. Here it is synchronous and the loop never competes with
+      // the navigation it was asked to make way for.
+      clock.stop()
+      navigate({ pathname: target.path, search: searchForJump(search) })
     },
-    [navigate, search],
+    [navigate, search, clock],
   )
 
   // Left/right (and up/down) step through the views, as long as the reader is

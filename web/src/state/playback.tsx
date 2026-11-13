@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useDataset } from '../data/DataContext'
 import { useControls } from './useControls'
 
@@ -130,11 +131,18 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
         // Loop back to the start, with a beat on the last year so the end of
         // the run is readable before it restarts.
         if (f > last + 0.35) f = first
-        const year = Math.min(last, Math.max(first, Math.round(f)))
-        if (year !== target.current) {
-          target.current = year
-          setRef.current({ year })
-        }
+        /*
+          Deliberately no router write here. Pushing the year into the query
+          string on every step made playback fight navigation: `setSearchParams`
+          issues a *relative* navigation, which resolves against the pathname
+          its closure last saw, so a click that changed the page was undone by
+          the next step ~400ms later and the view snapped back. It also forced
+          a full re-render of the app several times a second, which is what
+          made the whole UI unresponsive on a slower machine.
+
+          While playing, the playhead *is* the year: views read it through
+          `useAnimatedYear`. The URL is brought back in step once, on stop.
+        */
       } else {
         const delta = target.current - f
         if (Math.abs(delta) < EPS) f = target.current
@@ -188,6 +196,104 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  /*
+    When playback ends the playhead snaps to a whole year, and the URL is
+    brought back in step — but only when the stop was the reader pausing.
+
+    A stop caused by navigation must NOT touch the query string. Writing it
+    goes through `setSearchParams`, which issues a *relative* navigation: it
+    resolves against the pathname its closure last saw, so a write landing
+    while the router is mid-move sends the reader straight back to the page
+    they just left. Deferring the write does not help — the stale closure is
+    still stale a frame later. Nothing is lost by skipping it: the playhead is
+    snapped either way, and every view reads the playhead, so what is on screen
+    is correct. Only the `year` in the URL lags, until the next time a year is
+    picked deliberately.
+  */
+  const navStopped = useRef(false)
+
+  const snap = useCallback(() => {
+    const year = Math.min(last, Math.max(first, Math.round(frac.current)))
+    frac.current = year
+    target.current = year
+    emit()
+    return year
+  }, [emit, first, last])
+
+  /**
+   * Stops the playhead *this frame*.
+   *
+   * Flipping the ref as well as the state matters: the React update is queued
+   * behind whatever is rendering, and on a slower machine a page change is
+   * exactly when the main thread is busiest — so waiting for the re-render
+   * left the loop advancing, and re-rendering, for up to a second after the
+   * reader had already moved on. Starting is left to the state alone; a frame
+   * of lag there is imperceptible, and only stopping is ever urgent.
+   *
+   * This is the navigation-safe stop: it never writes the URL.
+   */
+  const stop = useCallback(() => {
+    // A no-op when nothing is running. Without this guard every call made
+    // while paused — the slider arms one on each pointer-down, the dot rail on
+    // every jump — left the "navigation stopped it" flag raised, and the next
+    // real pause silently skipped writing its year to the URL.
+    if (!playingRef.current) return
+    navStopped.current = true
+    playingRef.current = false
+    setPlaying(false)
+  }, [])
+
+  const wasPlaying = useRef(false)
+  useEffect(() => {
+    if (wasPlaying.current && !playing) {
+      if (navStopped.current) {
+        /*
+          Leaving the view: the playhead goes back to the year the URL carries
+          — 2024 unless one was picked deliberately — rather than keeping
+          wherever the animation happened to be. A view should open on a year
+          the reader chose, not on a leftover frame of an animation they walked
+          away from, and this also keeps the URL and the screen in agreement
+          without writing the query string mid-navigation.
+        */
+        frac.current = target.current
+        emit()
+      } else {
+        // A deliberate pause: keep that year, and make the URL say so.
+        setRef.current({ year: snap() })
+      }
+      navStopped.current = false
+    }
+    wasPlaying.current = playing
+  }, [playing, snap, emit])
+
+  /*
+    Changing view stops the animation. A playhead that survived a jump meant
+    every page opened mid-flight with a slider the reader never started — and
+    it was the other half of the navigation problem above. Keyed on the
+    pathname only: the query string changes whenever a filter does, and a
+    filter change must not stop playback.
+  */
+  const { pathname } = useLocation()
+  useEffect(() => {
+    // Unconditional: `stop` is already a no-op when nothing is running, and
+    // the guard this used to carry read an effect-synced ref that could be
+    // stale precisely when it mattered.
+    stop()
+    /*
+      And the playhead JUMPS to the incoming year — it does not ease into it.
+      The tween exists so that dragging the slider, or clicking a heatmap cell,
+      reads as one movement; applied to a route change it means a chart draws
+      itself at the year it inherited and then visibly settles onto the right
+      one. A chart should be complete in its first frame. Setting `frac` before
+      the kick effect runs leaves it nothing to animate.
+
+      `target` already holds the new year: the effect that mirrors
+      `controls.year` into it is declared above this one, so it has run.
+    */
+    frac.current = target.current
+    emit()
+  }, [pathname, stop, emit])
+
   const scrub = useCallback(
     (value: number) => {
       const clamped = Math.min(last, Math.max(first, value))
@@ -209,8 +315,21 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       },
       playing,
       speed,
-      toggle: () => setPlaying((v) => !v),
-      stop: () => setPlaying(false),
+      toggle: () => {
+        /*
+          The ref is written here, in the handler, not left to the effect that
+          mirrors `playing`. Everything that has to stop the loop in a hurry —
+          a jump to another view — tests this ref, and an effect-synced ref is
+          still stale at the moment of the click: on a slow machine the gap
+          between pressing Play and the effect flushing is long enough for a
+          navigation to land in between, find the ref false, decide there was
+          nothing to stop, and let playback run on into the next page.
+        */
+        const next = !playingRef.current
+        playingRef.current = next
+        setPlaying(next)
+      },
+      stop,
       setSpeed,
       scrub,
       subscribe: (fn) => {
@@ -220,7 +339,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       },
       getFrac: () => frac.current,
     }),
-    [playing, speed, scrub],
+    [playing, speed, scrub, stop],
   )
 
   return <PlaybackContext value={clock}>{children}</PlaybackContext>

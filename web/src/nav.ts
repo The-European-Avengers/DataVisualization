@@ -47,3 +47,23 @@ export const stopIndex = (pathname: string) => {
   const i = STOPS.findIndex((s) => s.path === pathname)
   return i === -1 ? 0 : i
 }
+
+/**
+ * The query string to carry when jumping to another view.
+ *
+ * Every filter travels — property, household, income, province — but the year
+ * is dropped, so a view always opens on the default (2024) rather than on
+ * whatever year the last one happened to be showing. Opening a chart should
+ * show the chart, not a year inherited from somewhere else and then a
+ * transition settling into place.
+ *
+ * The parameter is removed rather than set to "2024" because the controls omit
+ * any value equal to its default; an explicit `year=2024` would be the same
+ * state written a second way.
+ */
+export function searchForJump(search: string): string {
+  const params = new URLSearchParams(search)
+  params.delete('year')
+  const next = params.toString()
+  return next ? `?${next}` : ''
+}

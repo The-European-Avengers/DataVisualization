@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
-import { STOPS } from '../nav'
+import { STOPS, searchForJump } from '../nav'
+import { usePlayback } from '../state/playback'
 
 interface Props {
   open: boolean
@@ -9,6 +10,7 @@ interface Props {
 
 export function Drawer({ open, onNavigate }: Props) {
   const { search } = useLocation()
+  const clock = usePlayback()
 
   return (
     <nav className={`drawer${open ? ' open' : ''}`} aria-label="Views" inert={!open}>
@@ -19,9 +21,12 @@ export function Drawer({ open, onNavigate }: Props) {
             className={stop.kind === 'globe' ? 'drawer-home' : undefined}
           >
             <NavLink
-              to={{ pathname: stop.path, search }}
+              to={{ pathname: stop.path, search: searchForJump(search) }}
               end={stop.path === '/'}
-              onClick={onNavigate}
+              onClick={() => {
+                clock.stop()
+                onNavigate()
+              }}
             >
               <span className={stop.num ? 'num nav-num' : 'nav-num'} aria-hidden="true">
                 {stop.num ?? (stop.kind === 'globe' ? '◎' : '◆')}
