@@ -49,3 +49,4 @@
 - Improve animation speed and smoothness in the charts
 - Add Population data 
 - Add normalization
+- Smooth zoom controls
