@@ -1,14 +1,22 @@
 import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { Drawer } from './Drawer'
+import { DotNav } from './DotNav'
 
 export function AppShell() {
   const [open, setOpen] = useState(false)
   const { pathname } = useLocation()
   const dark = pathname === '/'
+  // Chart pages and the chart builder are sized to the viewport and must not
+  // scroll; the globe already fills it, and the story is a scrolling essay.
+  const fit = pathname.startsWith('/chart/') || pathname === '/build'
 
   return (
-    <div className={`shell${dark ? ' dark' : ''}${open ? ' drawer-open' : ''}`}>
+    <div
+      className={`shell${dark ? ' dark' : ''}${open ? ' drawer-open' : ''}${
+        fit ? ' fit' : ''
+      }`}
+    >
       <header className="topbar">
         <button
           type="button"
@@ -44,6 +52,8 @@ export function AppShell() {
       <main>
         <Outlet />
       </main>
+
+      <DotNav />
     </div>
   )
 }

@@ -1,19 +1,24 @@
+import { useMemo } from 'react'
 import { extent } from 'd3-array'
 import { scaleLinear } from 'd3-scale'
 import { line } from 'd3-shape'
 import { AxisBottom, AxisLeft } from '../components/axes'
 import { ChartFrame } from '../components/ChartFrame'
+import { DenmarkInset } from '../components/DenmarkInset'
 import { Tooltip } from '../components/Tooltip'
 import { useTip } from '../components/useTip'
 import { useDataset } from '../data/DataContext'
 import { fmtInt, fmtRatio } from '../data/format'
 import { ratioOf, slice, weightedMean } from '../data/selectors'
 import { SIDE_COLOR } from '../design/palette'
-import { useControls } from '../state/useControls'
+import { oneBasis, oneProperty, useControls } from '../state/useControls'
 import { chartBySlug } from './registry'
 import type { Side } from '../data/types'
 
-const M = { top: 26, right: 70, bottom: 46, left: 52 }
+const M = { top: 26, right: 76, bottom: 46, left: 54 }
+/* The inset is sized to whatever the plot can spare rather than to a fixed
+   box: on a laptop viewport a fixed 156x132 simply never appeared. */
+const INSET_MAX = { width: 156, height: 132 }
 const SIDES: Side[] = ['east', 'west']
 
 interface Point {
@@ -28,25 +33,33 @@ export function EastWest() {
   const [controls] = useControls()
   const { tip, show, hide } = useTip()
 
-  const sliced = slice(rows, {
-    property_type: controls.property,
-    family_type: controls.family,
-  })
+  const basis = oneBasis(controls)
+  const sliced = useMemo(
+    () =>
+      slice(rows, {
+        property_type: oneProperty(controls),
+        family_type: controls.family,
+      }),
+    [rows, controls],
+  )
 
   // Sales-weighted, so a province with more transactions counts for more.
-  const series: Record<Side, Point[]> = { east: [], west: [] }
-  for (const year of meta.years) {
-    for (const side of SIDES) {
-      const group = sliced.filter(
-        (r) => r.year === year && provinceByCode.get(r.nuts3)!.side === side,
-      )
-      series[side].push({
-        year,
-        value: weightedMean(group, (r) => ratioOf(r, controls.basis)),
-        sales: group.reduce((sum, r) => sum + r.n_sales, 0),
-      })
+  const series = useMemo(() => {
+    const out: Record<Side, Point[]> = { east: [], west: [] }
+    for (const year of meta.years) {
+      for (const side of SIDES) {
+        const group = sliced.filter(
+          (r) => r.year === year && provinceByCode.get(r.nuts3)!.side === side,
+        )
+        out[side].push({
+          year,
+          value: weightedMean(group, (r) => ratioOf(r, basis)),
+          sales: group.reduce((sum, r) => sum + r.n_sales, 0),
+        })
+      }
     }
-  }
+    return out
+  }, [meta.years, sliced, basis, provinceByCode])
 
   const all = [...series.east, ...series.west]
 
@@ -78,7 +91,32 @@ export function EastWest() {
   )
 
   return (
-    <ChartFrame def={def} table={table} height={460}>
+    <ChartFrame
+      def={def}
+      table={table}
+      legend={
+        <ul className="legend">
+          <li>
+            <span className="swatch" style={{ background: SIDE_COLOR.east }} />
+            East of the Great Belt — Zealand, its islands, Bornholm
+          </li>
+          <li>
+            <span className="swatch" style={{ background: SIDE_COLOR.west }} />
+            West of the Great Belt — Funen and Jutland
+          </li>
+        </ul>
+      }
+      hint={
+        <>
+          The Great Belt is the strait between Zealand and Funen. <b>East</b> is
+          Zealand, its islands and Bornholm; <b>west</b> is Funen and Jutland —
+          the split the national postal grid draws at code 5000, and the line
+          that was a ferry crossing until the bridge opened in 1997. The inset
+          shows which provinces fall on each side. Each line is a sales-weighted
+          mean, so busy provinces count for more than thin ones.
+        </>
+      }
+    >
       {({ width, height }) => {
         const x = scaleLinear()
           .domain(extent(all, (p) => p.year) as [number, number])
@@ -92,6 +130,22 @@ export function EastWest() {
           .x((p) => x(p.year))
           .y((p) => y(p.value))
 
+        // Both lines climb to the right, so the lower-left corner is free.
+        // The key goes there at whatever size fits, and is dropped only when
+        // even a small one would sit on the data.
+        const insetWidth = Math.min(
+          INSET_MAX.width,
+          (width - M.left - M.right) * 0.24,
+        )
+        const insetHeight = Math.min(
+          INSET_MAX.height,
+          (height - M.top - M.bottom) * 0.46,
+        )
+        const insetSize =
+          insetWidth >= 96 && insetHeight >= 74
+            ? { width: insetWidth, height: insetHeight }
+            : null
+
         return (
           <div className="chart-plot">
             <svg width={width} height={height} role="img" aria-label={def.title}>
@@ -102,6 +156,24 @@ export function EastWest() {
                 label="Weighted price-to-income ratio"
               />
               <AxisBottom scale={x} y={height - M.bottom} ticks={7} grid={false} />
+
+              {/*
+                The two lines rise to the right, so the lower-left corner is
+                always empty — the right place for the key to what "east" and
+                "west" actually mean.
+              */}
+              {insetSize && (
+                <g
+                  transform={`translate(${M.left + 14}, ${
+                    height - M.bottom - insetSize.height - 6
+                  })`}
+                >
+                  <DenmarkInset
+                    width={insetSize.width}
+                    height={insetSize.height}
+                  />
+                </g>
+              )}
 
               {SIDES.map((side) => {
                 const points = series[side]
@@ -154,10 +226,6 @@ export function EastWest() {
                 )
               })}
             </svg>
-            <p className="chart-hint">
-              East is Zealand, Lolland-Falster and Bornholm (zip codes below 5000); west
-              is Funen and Jutland. Bornholm is grouped with the east.
-            </p>
             {tip && <Tooltip state={tip} width={width} />}
           </div>
         )

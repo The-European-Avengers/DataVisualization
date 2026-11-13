@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { max } from 'd3-array'
 import { scaleBand, scaleLinear } from 'd3-scale'
 import { AxisLeft } from '../components/axes'
@@ -6,9 +7,10 @@ import { Tooltip } from '../components/Tooltip'
 import { useTip } from '../components/useTip'
 import { useDataset } from '../data/DataContext'
 import { fmtInt, fmtRatio } from '../data/format'
-import { isLowSample, ratioOf, slice } from '../data/selectors'
+import { atFracYear, byProvince, isLowSample, ratioOf, slice } from '../data/selectors'
 import { PROPERTY_COLOR } from '../design/palette'
-import { useControls } from '../state/useControls'
+import { oneBasis, useControls } from '../state/useControls'
+import { useAnimatedYear } from '../state/playback'
 import { chartBySlug } from './registry'
 import type { Row } from '../data/types'
 
@@ -17,33 +19,42 @@ const M = { top: 26, right: 16, bottom: 86, left: 52 }
 export function HouseVsFlat() {
   const def = chartBySlug.get('house-vs-flat')!
   const { rows, provinceByCode } = useDataset()
-  const [controls] = useControls()
+  const [controls, set] = useControls()
   const { tip, show, hide } = useTip()
+  const frac = useAnimatedYear()
 
-  const houses = slice(rows, {
-    property_type: 'one_family_house',
-    family_type: controls.family,
-  }).filter((r) => r.year === controls.year)
-  const flats = slice(rows, {
-    property_type: 'owner_occupied_flat',
-    family_type: controls.family,
-  }).filter((r) => r.year === controls.year)
+  const basis = oneBasis(controls)
 
-  const flatByCode = new Map(flats.map((r) => [r.nuts3, r]))
-  const all = houses
-    .map((h) => ({
-      nuts3: h.nuts3,
-      name: provinceByCode.get(h.nuts3)!.name,
-      house: h,
-      flat: flatByCode.get(h.nuts3)!,
-    }))
-    .sort(
-      (a, b) =>
-        Math.max(ratioOf(b.house, controls.basis), ratioOf(b.flat, controls.basis)) -
-        Math.max(ratioOf(a.house, controls.basis), ratioOf(a.flat, controls.basis)),
+  const all = useMemo(() => {
+    const houses = byProvince(
+      slice(rows, { property_type: 'one_family_house', family_type: controls.family }),
     )
+    const flats = byProvince(
+      slice(rows, {
+        property_type: 'owner_occupied_flat',
+        family_type: controls.family,
+      }),
+    )
+    const flatNow = new Map(atFracYear(flats, frac).map((r) => [r.nuts3, r]))
+    return atFracYear(houses, frac)
+      .map((h) => ({
+        nuts3: h.nuts3,
+        name: provinceByCode.get(h.nuts3)!.name,
+        house: h,
+        flat: flatNow.get(h.nuts3)!,
+      }))
+      .sort(
+        (a, b) =>
+          Math.max(ratioOf(b.house, basis), ratioOf(b.flat, basis)) -
+          Math.max(ratioOf(a.house, basis), ratioOf(a.flat, basis)),
+      )
+  }, [rows, controls.family, frac, basis, provinceByCode])
 
-  const data = controls.region ? all.filter((d) => d.nuts3 === controls.region) : all
+  // Selecting a province highlights it; "Selected only" is what drops the rest.
+  const data =
+    controls.only && controls.region
+      ? all.filter((d) => d.nuts3 === controls.region)
+      : all
 
   const table = (
     <table className="data-table">
@@ -60,8 +71,8 @@ export function HouseVsFlat() {
         {all.map((d) => (
           <tr key={d.nuts3}>
             <th scope="row">{d.name}</th>
-            <td className="num">{fmtRatio(ratioOf(d.house, controls.basis))}</td>
-            <td className="num">{fmtRatio(ratioOf(d.flat, controls.basis))}</td>
+            <td className="num">{fmtRatio(ratioOf(d.house, basis))}</td>
+            <td className="num">{fmtRatio(ratioOf(d.flat, basis))}</td>
             <td className="num">
               {fmtInt(d.house.n_sales)}
               {isLowSample(d.house) && ' ⚠'}
@@ -77,7 +88,35 @@ export function HouseVsFlat() {
   )
 
   return (
-    <ChartFrame def={def} table={table} height={480}>
+    <ChartFrame
+      def={def}
+      table={table}
+      legend={
+        <ul className="legend">
+          <li>
+            <span
+              className="swatch"
+              style={{ background: PROPERTY_COLOR.one_family_house }}
+            />
+            House
+          </li>
+          <li>
+            <span
+              className="swatch"
+              style={{ background: PROPERTY_COLOR.owner_occupied_flat }}
+            />
+            Flat
+          </li>
+        </ul>
+      }
+      hint={
+        <>
+          In City of Copenhagen most purchases are flats and houses are a thin
+          market, so the house bar there rests on few transactions — every bar
+          under fifteen sales carries a ⚠. Click a province to pin it.
+        </>
+      }
+    >
       {({ width, height }) => {
         const x = scaleBand<string>()
           .domain(data.map((d) => d.nuts3))
@@ -91,7 +130,7 @@ export function HouseVsFlat() {
           .domain([
             0,
             (max(all, (d) =>
-              Math.max(ratioOf(d.house, controls.basis), ratioOf(d.flat, controls.basis)),
+              Math.max(ratioOf(d.house, basis), ratioOf(d.flat, basis)),
             ) ?? 1) * 1.08,
           ])
           .nice()
@@ -102,7 +141,7 @@ export function HouseVsFlat() {
           kind: 'house' | 'flat',
           row: Row,
         ) => {
-          const value = ratioOf(row, controls.basis)
+          const value = ratioOf(row, basis)
           return (
             <g key={`${d.nuts3}-${kind}`}>
               <rect
@@ -151,25 +190,6 @@ export function HouseVsFlat() {
 
         return (
           <div className="chart-plot">
-            <div className="chart-toggles">
-              <ul className="legend">
-                <li>
-                  <span
-                    className="swatch"
-                    style={{ background: PROPERTY_COLOR.one_family_house }}
-                  />
-                  House
-                </li>
-                <li>
-                  <span
-                    className="swatch"
-                    style={{ background: PROPERTY_COLOR.owner_occupied_flat }}
-                  />
-                  Flat
-                </li>
-              </ul>
-            </div>
-
             <svg width={width} height={height} role="img" aria-label={def.title}>
               <AxisLeft
                 scale={y}
@@ -178,7 +198,15 @@ export function HouseVsFlat() {
                 label="Price-to-income ratio"
               />
               {data.map((d) => (
-                <g key={d.nuts3}>
+                <g
+                  key={d.nuts3}
+                  className={
+                    controls.region === d.nuts3 ? 'bar-row is-selected' : 'bar-row'
+                  }
+                  onClick={() =>
+                    set({ region: controls.region === d.nuts3 ? null : d.nuts3 })
+                  }
+                >
                   {bar(d, 'house', d.house)}
                   {bar(d, 'flat', d.flat)}
                   <text
@@ -192,11 +220,6 @@ export function HouseVsFlat() {
                 </g>
               ))}
             </svg>
-
-            <p className="chart-hint">
-              In City of Copenhagen most purchases are flats and houses are a thin market,
-              so the house bar there rests on few transactions.
-            </p>
             {tip && <Tooltip state={tip} width={width} />}
           </div>
         )

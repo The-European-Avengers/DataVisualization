@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import { CHARTS } from '../charts/registry'
+import { useLocation } from 'react-router-dom'
+import { STOPS } from '../nav'
 
 interface Props {
   open: boolean
@@ -7,22 +8,25 @@ interface Props {
 }
 
 export function Drawer({ open, onNavigate }: Props) {
+  const { search } = useLocation()
+
   return (
-    <nav className={`drawer${open ? ' open' : ''}`} aria-label="Charts" inert={!open}>
+    <nav className={`drawer${open ? ' open' : ''}`} aria-label="Views" inert={!open}>
       <ul>
-        <li className="drawer-home">
-          <NavLink to="/" end onClick={onNavigate}>
-            <span className="nav-num" aria-hidden="true">
-              ◎
-            </span>
-            Globe
-          </NavLink>
-        </li>
-        {CHARTS.map((c) => (
-          <li key={c.slug}>
-            <NavLink to={`/chart/${c.slug}`} onClick={onNavigate}>
-              <span className="num nav-num">{c.num}</span>
-              {c.nav}
+        {STOPS.map((stop) => (
+          <li
+            key={stop.path}
+            className={stop.kind === 'globe' ? 'drawer-home' : undefined}
+          >
+            <NavLink
+              to={{ pathname: stop.path, search }}
+              end={stop.path === '/'}
+              onClick={onNavigate}
+            >
+              <span className={stop.num ? 'num nav-num' : 'nav-num'} aria-hidden="true">
+                {stop.num ?? (stop.kind === 'globe' ? '◎' : '◆')}
+              </span>
+              {stop.label}
             </NavLink>
           </li>
         ))}

@@ -171,7 +171,7 @@ main {
   position: relative;
   /* The top bar floats over the globe rather than sitting above it. */
   margin-top: calc(-1 * var(--topbar-h));
-  min-height: 100vh;
+  min-height: 100dvh;
   color: var(--text-inverse);
   background:
     radial-gradient(120% 90% at 50% 0%, #10204a 0%, #0a0f1f 55%, #07080d 100%);
@@ -195,8 +195,8 @@ main {
   flex-direction: column;
   gap: 24px;
   justify-content: space-between;
-  min-height: 100vh;
-  padding: calc(var(--topbar-h) + 28px) 32px 112px;
+  min-height: 100dvh;
+  padding: calc(var(--topbar-h) + 24px) 32px 104px;
   pointer-events: none;
 }
 .hero-overlay > * {
@@ -419,7 +419,26 @@ main {
 }
 .chart-body {
   position: relative;
-  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  min-height: 0;
+}
+.chart-legend-row {
+  flex: none;
+  margin-bottom: 6px;
+}
+/* The measured box. Everything a chart draws is sized from this, so it must
+   contain nothing but the plot. */
+.plot-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 .chart-plot {
   position: relative;
@@ -525,6 +544,11 @@ tspan.warn {
 .tooltip dd {
   margin: 0;
   text-align: right;
+}
+/* A dt/dd pair wrapped in a div, so the two never wrap apart — `contents`
+   keeps them as direct grid items of the dl. */
+.tip-pair {
+  display: contents;
 }
 .tip-da {
   font-size: 11px;
@@ -797,4 +821,635 @@ text.legend-end {
 }
 text.legend-mid {
   text-anchor: middle;
+}
+
+/* ============================================================ fit to screen
+   A chart page is exactly one viewport tall and never scrolls: the head, the
+   filters, the hint and the pager take what they need, and the plot is given
+   every pixel left over. `dvh` rather than `vh` so a mobile browser's
+   collapsing address bar does not cut the bottom off. */
+.shell.fit {
+  height: 100dvh;
+  overflow: hidden;
+}
+.shell.fit main {
+  display: flex;
+  min-height: 0;
+}
+
+.page-fit {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1320px;
+  height: 100%;
+  padding: 0 24px 12px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+.page-fit .page-head {
+  flex: none;
+  padding: 10px 0 6px;
+}
+.page-fit .page-question {
+  font-size: 15px;
+}
+.page-fit .control-bar-wrap {
+  position: static;
+  flex: none;
+  margin-bottom: 10px;
+}
+.page-fit .control-bar {
+  padding: 8px 0;
+}
+.page-fit .chart {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 18px 14px;
+}
+.page-fit .chart-head {
+  flex: none;
+}
+.page-fit .chart-info {
+  flex: none;
+  max-height: 32vh;
+  overflow-y: auto;
+}
+.page-fit .chart-hint {
+  flex: none;
+  margin-top: 8px;
+  /* Two lines at most: the full text is always in the info panel. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.page-fit .pager {
+  flex: none;
+  margin-top: 10px;
+}
+/* Two levels of scroll, both inside the chart and never on the page: the plot
+   scrolls when a chart genuinely wants more room than the screen has (small
+   multiples), and the body scrolls when the viewport is shorter than the
+   chart's own minimum. */
+.plot-area {
+  overflow: auto;
+}
+.page-fit .chart-body {
+  overflow: auto;
+}
+
+/* ============================================================== dot rail */
+.dot-nav {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  z-index: 28;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px 8px 16px;
+  transform: translateY(-50%);
+}
+.dot-nav ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.dot-mark {
+  width: 8px;
+  height: 8px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  opacity: 0.38;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    background-color 140ms ease;
+}
+.dot:hover .dot-mark,
+.dot:focus-visible .dot-mark {
+  opacity: 0.8;
+  transform: scale(1.3);
+}
+.dot.current .dot-mark {
+  background: var(--accent);
+  opacity: 1;
+  transform: scale(1.5);
+}
+/* The globe and the two essay pages are marked out from the ten charts. */
+.dot-globe .dot-mark,
+.dot-page .dot-mark {
+  border-radius: 2px;
+}
+
+/* The label that appears on hover, to the left of the rail. */
+.dot-flag {
+  position: absolute;
+  right: 34px;
+  display: none;
+  max-width: 280px;
+  padding: 7px 11px;
+  text-align: left;
+  pointer-events: none;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
+.dot:hover .dot-flag,
+.dot:focus-visible .dot-flag {
+  display: block;
+}
+.dot-flag-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.dot-flag-num {
+  margin-right: 7px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.dot-flag-title {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+/* The arrows stay out of the way until the rail is hovered or tabbed into. */
+.dot-arrow {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 2px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.dot-nav:hover .dot-arrow,
+.dot-nav:focus-within .dot-arrow {
+  opacity: 1;
+}
+.dot-arrow:disabled {
+  cursor: default;
+  opacity: 0;
+}
+.dot-nav:hover .dot-arrow:disabled,
+.dot-nav:focus-within .dot-arrow:disabled {
+  opacity: 0.3;
+}
+.dot-arrow:not(:disabled):hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+/* Over the globe the rail is on a dark scene. */
+.shell.dark .dot-mark {
+  background: var(--text-inverse);
+}
+.shell.dark .dot.current .dot-mark {
+  background: var(--accent-dark);
+}
+.shell.dark .dot-flag,
+.shell.dark .dot-arrow {
+  color: var(--text-inverse);
+  background: color-mix(in srgb, var(--surface-dark) 92%, transparent);
+  border-color: var(--border-dark);
+  backdrop-filter: blur(10px);
+}
+.shell.dark .dot-flag-label {
+  color: var(--text-inverse);
+}
+.shell.dark .dot-flag-title {
+  color: var(--text-inverse-muted);
+}
+
+/* The rail overlaps the chart on a narrow screen, so the page makes room. */
+@media (width >= 900px) {
+  .page-fit,
+  .story-page,
+  .build-page {
+    padding-right: 52px;
+  }
+}
+
+/* ====================================================== controls, bits */
+.speed-switch {
+  display: flex;
+  gap: 2px;
+}
+.speed-switch button {
+  padding: 2px 6px;
+  font-size: 11px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  opacity: 0.6;
+}
+.speed-switch button[aria-pressed='true'] {
+  border-color: currentcolor;
+  opacity: 1;
+}
+
+.pill {
+  padding: 5px 11px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.pill[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.pill:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.control-check {
+  justify-content: flex-end;
+}
+
+.chart-titles {
+  min-width: 0;
+}
+.chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+}
+.chart-info-hint {
+  margin-top: 8px !important;
+  color: var(--text-secondary);
+}
+
+/* A legend that has to carry eleven names wraps instead of overflowing. */
+.legend-wrap {
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.legend-pick {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 1px 4px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+}
+.legend-pick:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.legend-pick.is-active {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ======================================================= chart details */
+text.series-label.is-active {
+  font-weight: 700;
+}
+.end-label text {
+  cursor: pointer;
+}
+.bar-row,
+.heat-cell,
+.bubble {
+  cursor: pointer;
+}
+.bar-row.is-selected rect {
+  stroke: var(--text-primary);
+  stroke-width: 1.2;
+}
+text.inset-label-east {
+  text-anchor: end;
+}
+.denmark-inset {
+  pointer-events: none;
+}
+.panel.is-selected .panel-title {
+  fill: var(--accent);
+}
+text.story-event-label {
+  font-size: 10px;
+  fill: var(--text-secondary);
+}
+
+/* ============================================================ the story */
+.story-page,
+.build-page {
+  max-width: 1320px;
+}
+.story-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 20px;
+  align-items: start;
+}
+.story-chart {
+  display: flex;
+  flex-direction: column;
+}
+.story-chart .chart-body {
+  min-height: 0;
+}
+/*
+  A definite height, not a minimum. The story page scrolls, so nothing above
+  bounds this box: with only a min-height the plot's measured height and the
+  SVG height it sets are each defined by the other, and the chart settles at
+  whatever the first layout pass happened to produce.
+*/
+.story-chart .plot-area {
+  /*
+    `flex: none` as well as the height: the shared .plot-area rule sets
+    `flex: 1`, whose `flex-basis: 0%` wins over `height` when the box is laid
+    out as a flex item, collapsing the plot to nothing.
+  */
+  flex: none;
+  height: clamp(260px, 44vh, 420px);
+}
+.story-timeline {
+  margin-top: 12px;
+}
+.story-timeline input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.story-progress {
+  height: 3px;
+  margin: 2px 0 10px;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-radius: 2px;
+}
+.story-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.story-chapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.story-chapters button {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.story-chapters button.is-current {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.story-chapters .num {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.story-caption {
+  position: sticky;
+  top: calc(var(--topbar-h) + 12px);
+  padding: 18px 20px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+.story-years {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.story-caption h3 {
+  margin: 4px 0 8px;
+  font-size: 18px;
+}
+.story-caption p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.story-readout {
+  padding-top: 10px;
+  font-size: 13px !important;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+}
+.story-source {
+  font-size: 11.5px !important;
+  line-height: 1.5 !important;
+  color: var(--text-secondary);
+}
+
+/* ====================================================== build your own */
+.build-chart {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.build-chart .chart-body {
+  min-height: 0;
+}
+.build-chart .plot-area {
+  min-height: 260px;
+}
+.build-page .build-table {
+  flex: none;
+}
+.build-page .build-table .table-scroll {
+  max-height: 32vh;
+}
+.build-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--grid);
+}
+.build-pickers label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.build-pickers select {
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-primary);
+  text-transform: none;
+  letter-spacing: normal;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.build-pickers .metric-switch button {
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.build-pickers .metric-switch button[aria-pressed='true'] {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.build-table {
+  margin-top: 18px;
+  font-size: 13px;
+}
+.build-table summary {
+  padding: 8px 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* The hero has to hold a headline, a measure panel and the filter bar inside
+   one viewport. On a short screen the panel grows past it and pushes the
+   filters off the bottom, so the type and the padding come down with it. */
+@media (height < 820px) {
+  .hero-copy h1 {
+    font-size: clamp(22px, 2.6vw, 30px);
+  }
+  .hero-copy p {
+    margin-top: 10px;
+    font-size: 13px;
+  }
+  .hero-overlay {
+    gap: 14px;
+    padding: calc(var(--topbar-h) + 14px) 28px 92px;
+  }
+  .hero-controls {
+    padding: 12px 14px;
+  }
+  .metric-axis {
+    margin: 10px 0 5px;
+  }
+  .hero-controls .year-slider {
+    margin-top: 10px;
+  }
+  .metric-note {
+    margin-top: 8px;
+    /* The full text is on the button's tooltip. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+}
+
+/* A laptop viewport spends most of its height on chrome, so on a short screen
+   the page sheds everything that is repeated elsewhere: the research question
+   is in the info panel, and the hint is clamped to one line. */
+@media (height < 820px) {
+  .page-fit .page-head {
+    padding: 6px 0 2px;
+  }
+  .page-fit .page-question {
+    display: none;
+  }
+  .page-fit .chart {
+    padding: 10px 16px;
+  }
+  .page-fit .chart-head h2 {
+    font-size: 17px;
+  }
+  .page-fit .chart-sub {
+    font-size: 12px;
+  }
+  .page-fit .chart-hint {
+    -webkit-line-clamp: 1;
+    margin-top: 6px;
+  }
+  .page-fit .pager {
+    margin-top: 6px;
+  }
+  .page-fit .pager a {
+    padding: 5px 12px;
+  }
+}
+
+/* ========================================================== responsive */
+@media (width < 1024px) {
+  .story-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .story-caption {
+    position: static;
+  }
+}
+
+@media (width < 760px) {
+  /* Below this a viewport-tall chart is unreadable, so the page scrolls
+     again and each chart is given a workable minimum instead. */
+  .shell.fit {
+    height: auto;
+    overflow: visible;
+  }
+  .page-fit {
+    height: auto;
+    overflow: visible;
+  }
+  .page-fit .chart {
+    min-height: 420px;
+  }
+  .dot-nav {
+    gap: 0;
+    padding: 6px;
+  }
+  .dot {
+    width: 16px;
+    height: 14px;
+  }
+  .dot-flag {
+    display: none !important;
+  }
+  .dot-arrow {
+    display: none;
+  }
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { extent, max } from 'd3-array'
 import { scaleLog, scaleSqrt } from 'd3-scale'
 import { ChartFrame } from '../components/ChartFrame'
@@ -6,12 +6,22 @@ import { Tooltip } from '../components/Tooltip'
 import { useTip } from '../components/useTip'
 import { useDataset } from '../data/DataContext'
 import { fmtDkk, fmtInt, fmtRatio } from '../data/format'
-import { incomeOf, isLowSample, ratioOf, slice } from '../data/selectors'
-import { MUTED, SERIES } from '../design/palette'
-import { useControls } from '../state/useControls'
+import {
+  atFracYear,
+  byProvince,
+  incomeOf,
+  isLowSample,
+  normCount,
+  poolRows,
+  ratioOf,
+} from '../data/selectors'
+import { provinceColor } from '../design/palette'
+import { oneBasis, propertiesOf, useControls } from '../state/useControls'
+import { useAnimatedYear } from '../state/playback'
+import type { Row } from '../data/types'
 import { chartBySlug } from './registry'
 
-const M = { top: 16, right: 24, bottom: 50, left: 68 }
+const M = { top: 16, right: 28, bottom: 52, left: 70 }
 const REFERENCE_RATIOS = [3, 5, 10]
 
 export function Bubble() {
@@ -19,28 +29,47 @@ export function Bubble() {
   const { rows, provinceByCode } = useDataset()
   const [controls, set] = useControls()
   const { tip, show, hide } = useTip()
-  const [perFamily, setPerFamily] = useState(false)
+  const frac = useAnimatedYear()
   const [swapped, setSwapped] = useState(false)
+  const [hovered, setHovered] = useState<string | null>(null)
 
-  const sliced = slice(rows, {
-    property_type: controls.property,
-    family_type: controls.family,
-  })
+  const basis = oneBasis(controls)
+  const properties = propertiesOf(controls)
+  const pooled = properties.length > 1
+
+  /**
+   * With Property set to "Both", a province is one bubble rather than two:
+   * houses and flats are pooled into a single mark, prices and ratios
+   * sales-weighted and sales summed. Pooling happens before anything else so
+   * the axes, the sizes and the animation all see the same series.
+   */
+  const series = useMemo(() => {
+    const groups = new Map<string, Row[]>()
+    for (const r of rows) {
+      if (r.family_type !== controls.family) continue
+      if (!properties.includes(r.property_type)) continue
+      const key = `${r.nuts3}:${r.year}`
+      const list = groups.get(key)
+      if (list) list.push(r)
+      else groups.set(key, [r])
+    }
+    return byProvince([...groups.values()].map(poolRows))
+  }, [rows, controls.family, properties])
+
+  const all = useMemo(() => [...series.values()].flat(), [series])
 
   // Axes are fixed across all years, so the animation shows movement rather
   // than the scales re-fitting under the bubbles.
-  const incomeDomain = extent(sliced, (r) => incomeOf(r, controls.basis)) as [
-    number,
-    number,
-  ]
-  const priceDomain = extent(sliced, (r) => r.avg_price_dkk) as [number, number]
-  const sizeMax = perFamily
-    ? max(sliced, (r) => r.n_sales / r.n_families) ?? 1
-    : max(sliced, (r) => r.n_sales) ?? 1
+  const incomeDomain = extent(all, (r) => incomeOf(r, basis)) as [number, number]
+  const priceDomain = extent(all, (r) => r.avg_price_dkk) as [number, number]
+  const sizeOf = (r: Row) => normCount(r.n_sales, r, controls.norm)
+  const sizeMax = max(all, sizeOf) ?? 1
 
-  const current = sliced.filter((r) => r.year === controls.year)
-  const sizeOf = (r: (typeof current)[number]) =>
-    perFamily ? r.n_sales / r.n_families : r.n_sales
+  const frame = useMemo(() => atFracYear(series, frac), [series, frac])
+  const current =
+    controls.only && controls.region
+      ? frame.filter((r) => r.nuts3 === controls.region)
+      : frame
 
   const table = (
     <table className="data-table">
@@ -54,14 +83,14 @@ export function Bubble() {
         </tr>
       </thead>
       <tbody>
-        {[...current]
-          .sort((a, b) => ratioOf(b, controls.basis) - ratioOf(a, controls.basis))
+        {[...frame]
+          .sort((a, b) => ratioOf(b, basis) - ratioOf(a, basis))
           .map((r) => (
             <tr key={r.nuts3}>
               <th scope="row">{provinceByCode.get(r.nuts3)!.name}</th>
-              <td className="num">{fmtDkk(incomeOf(r, controls.basis))}</td>
+              <td className="num">{fmtDkk(incomeOf(r, basis))}</td>
               <td className="num">{fmtDkk(r.avg_price_dkk)}</td>
-              <td className="num">{fmtRatio(ratioOf(r, controls.basis))}</td>
+              <td className="num">{fmtRatio(ratioOf(r, basis))}</td>
               <td className="num">{fmtInt(r.n_sales)}</td>
             </tr>
           ))}
@@ -70,7 +99,68 @@ export function Bubble() {
   )
 
   return (
-    <ChartFrame def={def} table={table} height={520}>
+    <ChartFrame
+      def={def}
+      table={table}
+      /*
+        Eleven coloured bubbles need a key. It doubles as a picker: the colours
+        match every other province chart, and clicking a name pins that
+        province here and everywhere else.
+      */
+      legend={
+        <ul className="legend legend-wrap">
+          {frame
+            .slice()
+            .sort((a, b) =>
+              provinceByCode
+                .get(a.nuts3)!
+                .name.localeCompare(provinceByCode.get(b.nuts3)!.name),
+            )
+            .map((r) => (
+              <li key={r.nuts3}>
+                <button
+                  type="button"
+                  className={`legend-pick${
+                    controls.region === r.nuts3 ? ' is-active' : ''
+                  }`}
+                  onPointerEnter={() => setHovered(r.nuts3)}
+                  onPointerLeave={() => setHovered(null)}
+                  onClick={() =>
+                    set({ region: controls.region === r.nuts3 ? null : r.nuts3 })
+                  }
+                >
+                  <span
+                    className="swatch"
+                    style={{ background: provinceColor(r.nuts3) }}
+                  />
+                  {provinceByCode.get(r.nuts3)!.name}
+                </button>
+              </li>
+            ))}
+        </ul>
+      }
+      toolbar={
+        <button
+          type="button"
+          className="pill"
+          aria-pressed={swapped}
+          onClick={() => setSwapped((v) => !v)}
+        >
+          Swap axes
+        </button>
+      }
+      hint={
+        <>
+          Press play to watch the provinces drift. Bubbles above a diagonal are
+          less affordable than that ratio; size is{' '}
+          {controls.norm === 'per_1k_families'
+            ? 'sales per 1,000 families'
+            : 'the number of sales'}
+          {pooled && ', houses and flats pooled into one bubble per province'}.
+          Click a bubble to pin it.
+        </>
+      }
+    >
       {({ width, height }) => {
         const incomeScale = scaleLog()
           .domain([incomeDomain[0] * 0.85, incomeDomain[1] * 1.15])
@@ -79,12 +169,17 @@ export function Bubble() {
           .domain([priceDomain[0] * 0.85, priceDomain[1] * 1.15])
           .range(swapped ? [M.left, width - M.right] : [height - M.bottom, M.top])
 
-        const px = (r: (typeof current)[number]) =>
-          swapped ? priceScale(r.avg_price_dkk) : incomeScale(incomeOf(r, controls.basis))
-        const py = (r: (typeof current)[number]) =>
-          swapped ? incomeScale(incomeOf(r, controls.basis)) : priceScale(r.avg_price_dkk)
+        const px = (r: Row) =>
+          swapped ? priceScale(r.avg_price_dkk) : incomeScale(incomeOf(r, basis))
+        const py = (r: Row) =>
+          swapped ? incomeScale(incomeOf(r, basis)) : priceScale(r.avg_price_dkk)
 
-        const radius = scaleSqrt().domain([0, sizeMax]).range([3, 26])
+        // Bubble area scales with the plot, so one province alone is not a dot
+        // and eleven on a small screen are not a single blob.
+        const span = Math.min(width - M.left - M.right, height - M.top - M.bottom)
+        const radius = scaleSqrt()
+          .domain([0, sizeMax])
+          .range([3, Math.max(14, Math.min(34, span * 0.09))])
 
         const xScale = swapped ? priceScale : incomeScale
         const yScale = swapped ? incomeScale : priceScale
@@ -98,26 +193,20 @@ export function Bubble() {
         const xLabel = swapped ? 'Average price (DKK, log)' : 'Average income (DKK, log)'
         const yLabel = swapped ? 'Average income (DKK, log)' : 'Average price (DKK, log)'
 
+        const active = hovered ?? controls.region
+
         return (
           <div className="chart-plot">
-            <div className="chart-toggles">
-              <button
-                type="button"
-                aria-pressed={perFamily}
-                onClick={() => setPerFamily((v) => !v)}
-              >
-                Size: {perFamily ? 'sales per family' : 'sales'}
-              </button>
-              <button
-                type="button"
-                aria-pressed={swapped}
-                onClick={() => setSwapped((v) => !v)}
-              >
-                Swap axes
-              </button>
-            </div>
-
-            <svg width={width} height={height} role="img" aria-label={def.title}>
+            <svg
+              width={width}
+              height={height}
+              role="img"
+              aria-label={def.title}
+              onPointerLeave={() => {
+                setHovered(null)
+                hide()
+              }}
+            >
               {xTicks.map((t) => (
                 <g key={`x${t}`}>
                   <line
@@ -146,7 +235,7 @@ export function Bubble() {
                   </text>
                 </g>
               ))}
-              <text className="axis-title" x={width - M.right} y={height - 14}>
+              <text className="axis-title" x={width - M.right} y={height - 16}>
                 {xLabel}
               </text>
               <text className="axis-title axis-title-y" x={M.left - 8} y={M.top - 4}>
@@ -184,46 +273,60 @@ export function Bubble() {
                 )
               })}
 
-              {current
-                .slice()
+              {/* Biggest first, so a small bubble is never buried by a large one. */}
+              {[...current]
                 .sort((a, b) => sizeOf(b) - sizeOf(a))
                 .map((r) => {
-                  const isActive = controls.region === r.nuts3
+                  const isActive = active === r.nuts3
+                  const dim = active !== null && !isActive
                   return (
                     <circle
                       key={r.nuts3}
                       cx={px(r)}
                       cy={py(r)}
                       r={radius(sizeOf(r))}
-                      fill={isActive ? SERIES[0] : MUTED}
-                      fillOpacity={isActive ? 0.75 : 0.55}
-                      stroke="var(--surface-1)"
-                      strokeWidth={2}
-                      onPointerMove={(e) =>
+                      fill={provinceColor(r.nuts3)}
+                      fillOpacity={dim ? 0.3 : 0.8}
+                      stroke={isActive ? 'var(--text-primary)' : 'var(--surface-1)'}
+                      strokeWidth={isActive ? 2.5 : 1.5}
+                      className="bubble"
+                      onPointerMove={(e) => {
+                        setHovered(r.nuts3)
                         show(
                           e,
                           <>
                             <strong>{provinceByCode.get(r.nuts3)!.name}</strong>
-                            <div className="tip-da num">{r.year}</div>
+                            <div className="tip-da num">{Math.round(frac)}</div>
                             <dl>
-                              <dt>Income</dt>
-                              <dd className="num">
-                                {fmtDkk(incomeOf(r, controls.basis))}
-                              </dd>
-                              <dt>Price</dt>
-                              <dd className="num">{fmtDkk(r.avg_price_dkk)}</dd>
-                              <dt>Ratio</dt>
-                              <dd className="num">
-                                {fmtRatio(ratioOf(r, controls.basis))}
-                              </dd>
-                              <dt>Sales</dt>
-                              <dd className="num">{fmtInt(r.n_sales)}</dd>
+                              <div className="tip-pair">
+                                <dt>Income</dt>
+                                <dd className="num">{fmtDkk(incomeOf(r, basis))}</dd>
+                              </div>
+                              <div className="tip-pair">
+                                <dt>Price</dt>
+                                <dd className="num">{fmtDkk(r.avg_price_dkk)}</dd>
+                              </div>
+                              <div className="tip-pair">
+                                <dt>Ratio</dt>
+                                <dd className="num">{fmtRatio(ratioOf(r, basis))}</dd>
+                              </div>
+                              <div className="tip-pair">
+                                <dt>Sales</dt>
+                                <dd className="num">{fmtInt(r.n_sales)}</dd>
+                              </div>
+                              {controls.norm === 'per_1k_families' && (
+                                <div className="tip-pair">
+                                  <dt>Per 1,000 families</dt>
+                                  <dd className="num">{fmtRatio(sizeOf(r))}</dd>
+                                </div>
+                              )}
                             </dl>
-                            {isLowSample(r) && <div className="tip-warn">⚠ low sample</div>}
+                            {isLowSample(r) && (
+                              <div className="tip-warn">⚠ low sample</div>
+                            )}
                           </>,
                         )
-                      }
-                      onPointerLeave={hide}
+                      }}
                       onClick={() =>
                         set({ region: controls.region === r.nuts3 ? null : r.nuts3 })
                       }
@@ -231,25 +334,22 @@ export function Bubble() {
                   )
                 })}
 
+              {/* The pinned or hovered province is named on the plot itself. */}
               {current
-                .filter((r) => controls.region === r.nuts3)
+                .filter((r) => active === r.nuts3)
                 .map((r) => (
                   <text
                     key={`l${r.nuts3}`}
-                    className="series-label"
-                    x={px(r) + radius(sizeOf(r)) + 6}
+                    className="series-label is-active"
+                    x={px(r) + radius(sizeOf(r)) + 7}
                     y={py(r)}
-                    fill={SERIES[0]}
+                    fill={provinceColor(r.nuts3)}
                   >
                     {provinceByCode.get(r.nuts3)!.name}
                   </text>
                 ))}
             </svg>
 
-            <p className="chart-hint">
-              Press play on the year slider to watch the provinces drift. Bubbles above a
-              diagonal are less affordable than that ratio. Click one to pin its label.
-            </p>
             {tip && <Tooltip state={tip} width={width} />}
           </div>
         )

@@ -7,30 +7,46 @@ import { useTip } from '../components/useTip'
 import { useDataset } from '../data/DataContext'
 import { fmtDkk, fmtInt, fmtRatio } from '../data/format'
 import { BORNHOLM, provinceFeatures } from '../data/geo'
-import { isLowSample, ratioOf, slice } from '../data/selectors'
+import { atFracYear, byProvince, isLowSample, ratioOf, slice } from '../data/selectors'
 import { SEQ_BLUE, seqColor } from '../design/palette'
-import { useControls } from '../state/useControls'
+import { oneBasis, oneProperty, useControls } from '../state/useControls'
+import { useAnimatedYear } from '../state/playback'
 import { chartBySlug } from './registry'
 
-const M = { top: 10, right: 10, bottom: 54, left: 10 }
-const INSET = { width: 128, height: 128, pad: 10 }
+const M = { top: 10, right: 10, bottom: 56, left: 10 }
+/* Upper bound, not a fixed size: on a laptop viewport a fixed 124px box
+   never cleared its own threshold and Bornholm silently vanished. */
+const INSET_MAX = { width: 124, height: 124, pad: 10 }
 
 export function Choropleth() {
   const def = chartBySlug.get('choropleth-map')!
   const { rows, topology, provinceByCode } = useDataset()
   const [controls, set] = useControls()
   const { tip, show, hide } = useTip()
+  const frac = useAnimatedYear()
 
+  const basis = oneBasis(controls)
   const features = useMemo(() => provinceFeatures(topology), [topology])
 
-  const sliced = slice(rows, {
-    property_type: controls.property,
-    family_type: controls.family,
-  })
+  const sliced = useMemo(
+    () =>
+      slice(rows, {
+        property_type: oneProperty(controls),
+        family_type: controls.family,
+      }),
+    [rows, controls],
+  )
   // Fixed across all years so the colours mean the same thing as the year moves.
-  const [lo = 0, hi = 1] = extent(sliced, (r) => ratioOf(r, controls.basis))
-  const byCode = new Map(
-    sliced.filter((r) => r.year === controls.year).map((r) => [r.nuts3, r]),
+  const [lo = 0, hi = 1] = extent(sliced, (r) => ratioOf(r, basis))
+
+  /**
+   * Colours are read at the fractional year, so scrubbing the slider makes
+   * the map fade between years rather than flicking through thirty states.
+   */
+  const series = useMemo(() => byProvince(sliced), [sliced])
+  const byCode = useMemo(
+    () => new Map(atFracYear(series, frac).map((r) => [r.nuts3, r])),
+    [series, frac],
   )
 
   const table = (
@@ -45,11 +61,11 @@ export function Choropleth() {
       </thead>
       <tbody>
         {[...byCode.values()]
-          .sort((a, b) => ratioOf(b, controls.basis) - ratioOf(a, controls.basis))
+          .sort((a, b) => ratioOf(b, basis) - ratioOf(a, basis))
           .map((r) => (
             <tr key={r.nuts3}>
               <th scope="row">{provinceByCode.get(r.nuts3)!.name}</th>
-              <td className="num">{fmtRatio(ratioOf(r, controls.basis))}</td>
+              <td className="num">{fmtRatio(ratioOf(r, basis))}</td>
               <td className="num">{fmtDkk(r.avg_price_dkk)}</td>
               <td className="num">
                 {fmtInt(r.n_sales)}
@@ -62,27 +78,47 @@ export function Choropleth() {
   )
 
   return (
-    <ChartFrame def={def} table={table} height={560}>
+    <ChartFrame
+      def={def}
+      table={table}
+      hint={
+        <>
+          Darker means a home costs more years of income. Click a province to
+          pin it across every chart; the colour scale is fixed across all
+          thirty years, so the shade is comparable between years.
+        </>
+      }
+    >
       {({ width, height }) => {
         const mainland = features.filter((f) => f.properties.nuts3 !== BORNHOLM)
         const bornholm = features.find((f) => f.properties.nuts3 === BORNHOLM)
 
+        // The inset takes a corner at whatever size the box can spare, and is
+        // dropped only when the map itself would be squeezed by it.
+        const insetSize = Math.min(
+          INSET_MAX.width,
+          width * 0.17,
+          height * 0.34,
+        )
+        const withInset = Boolean(bornholm) && insetSize >= 68
+        const pad = Math.max(5, INSET_MAX.pad * (insetSize / INSET_MAX.width))
+
         const projection = geoMercator().fitExtent(
           [
             [M.left, M.top],
-            [width - M.right, height - M.bottom],
+            [width - M.right - (withInset ? insetSize + 8 : 0), height - M.bottom],
           ],
           { type: 'FeatureCollection', features: mainland } as never,
         )
         const path = geoPath(projection)
 
-        const insetX = width - M.right - INSET.width
+        const insetX = width - M.right - insetSize
         const insetY = M.top
         const insetProjection = bornholm
           ? geoMercator().fitExtent(
               [
-                [INSET.pad, INSET.pad],
-                [INSET.width - INSET.pad, INSET.height - INSET.pad],
+                [pad, pad],
+                [insetSize - pad, insetSize - pad],
               ],
               bornholm as never,
             )
@@ -92,7 +128,7 @@ export function Choropleth() {
         const fill = (code: string) => {
           const row = byCode.get(code)
           if (!row) return 'var(--surface-3)'
-          return seqColor((ratioOf(row, controls.basis) - lo) / (hi - lo || 1))
+          return seqColor((ratioOf(row, basis) - lo) / (hi - lo || 1))
         }
 
         const tooltipFor = (code: string) => {
@@ -104,12 +140,18 @@ export function Choropleth() {
               <div className="tip-da">{province.da}</div>
               {row && (
                 <dl>
-                  <dt>Ratio</dt>
-                  <dd className="num">{fmtRatio(ratioOf(row, controls.basis))}</dd>
-                  <dt>Avg price</dt>
-                  <dd className="num">{fmtDkk(row.avg_price_dkk)}</dd>
-                  <dt>Sales</dt>
-                  <dd className="num">{fmtInt(row.n_sales)}</dd>
+                  <div className="tip-pair">
+                    <dt>Ratio</dt>
+                    <dd className="num">{fmtRatio(ratioOf(row, basis))}</dd>
+                  </div>
+                  <div className="tip-pair">
+                    <dt>Avg price</dt>
+                    <dd className="num">{fmtDkk(row.avg_price_dkk)}</dd>
+                  </div>
+                  <div className="tip-pair">
+                    <dt>Sales</dt>
+                    <dd className="num">{fmtInt(row.n_sales)}</dd>
+                  </div>
                 </dl>
               )}
               {row && isLowSample(row) && <div className="tip-warn">⚠ low sample</div>}
@@ -124,7 +166,9 @@ export function Choropleth() {
             fill={fill(f.properties.nuts3)}
             stroke="var(--surface-1)"
             strokeWidth={0.8}
-            className={controls.region === f.properties.nuts3 ? 'region selected' : 'region'}
+            className={
+              controls.region === f.properties.nuts3 ? 'region selected' : 'region'
+            }
             onPointerMove={(e) => show(e, tooltipFor(f.properties.nuts3))}
             onPointerLeave={hide}
             onClick={() =>
@@ -136,23 +180,25 @@ export function Choropleth() {
           />
         )
 
+        const rampWidth = Math.min(220, width - M.left * 2 - 120)
+
         return (
           <div className="chart-plot">
             <svg width={width} height={height} role="img" aria-label={def.title}>
               {mainland.map((f) => region(f, path))}
 
-              {bornholm && insetPath && (
+              {bornholm && insetPath && withInset && (
                 <g transform={`translate(${insetX}, ${insetY})`}>
                   <rect
-                    width={INSET.width}
-                    height={INSET.height}
+                    width={insetSize}
+                    height={insetSize}
                     rx={4}
                     fill="var(--surface-2)"
                     stroke="var(--border)"
                   />
                   {region(bornholm, insetPath)}
-                  <text className="inset-label" x={INSET.pad} y={INSET.height - 8}>
-                    Bornholm (inset)
+                  <text className="inset-label" x={pad} y={insetSize - 7}>
+                    Bornholm
                   </text>
                 </g>
               )}
@@ -170,14 +216,14 @@ export function Choropleth() {
                     ))}
                   </linearGradient>
                 </defs>
-                <rect width={200} height={10} rx={3} fill="url(#choro-ramp)" />
+                <rect width={rampWidth} height={10} rx={3} fill="url(#choro-ramp)" />
                 <text className="axis num legend-start" x={0} y={24}>
                   {fmtRatio(lo)}
                 </text>
-                <text className="axis num legend-end" x={200} y={24}>
+                <text className="axis num legend-end" x={rampWidth} y={24}>
                   {fmtRatio(hi)}
                 </text>
-                <text className="axis-title" x={200} y={-6} textAnchor="end">
+                <text className="axis-title" x={rampWidth} y={-6} textAnchor="end">
                   Price-to-income ratio
                 </text>
               </g>

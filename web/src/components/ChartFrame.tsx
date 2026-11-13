@@ -15,11 +15,19 @@ interface Props {
   table?: ReactNode
   /** Chart-specific toggles. They sit in the header, not over the plot. */
   toolbar?: ReactNode
+  /**
+   * The chart's key. It is rendered above the plot but *outside* the measured
+   * area, so the plot is told the height it actually has — a legend drawn
+   * inside the measured box would push the SVG past the bottom of the screen
+   * by its own height.
+   */
+  legend?: ReactNode
   /** One or two lines of reading guidance under the plot. */
   hint?: ReactNode
   /**
-   * Floor for the plot area. The body otherwise takes whatever height the
-   * page has left, which is how a chart fills the screen without scrolling.
+   * CSS floor for the plot area, in pixels. The plot otherwise takes whatever
+   * height the page has left, which is how a chart fills the screen without
+   * scrolling; below this the body scrolls instead of squashing the chart.
    */
   minHeight?: number
 }
@@ -37,15 +45,14 @@ export function ChartFrame({
   children,
   table,
   toolbar,
+  legend,
   hint,
-  minHeight = 260,
+  minHeight = 200,
 }: Props) {
   const [ref, size] = useMeasure<HTMLDivElement>()
   const [showInfo, setShowInfo] = useState(false)
   const [showTable, setShowTable] = useState(false)
   const infoId = useId()
-
-  const height = Math.max(minHeight, size.height)
 
   return (
     <section className="chart">
@@ -85,11 +92,23 @@ export function ChartFrame({
         </div>
       )}
 
-      <div className="chart-body" ref={ref}>
+      <div className="chart-body">
         {showTable && table ? (
           <div className="table-scroll">{table}</div>
         ) : (
-          size.width > 0 && children({ width: size.width, height })
+          <>
+            {legend && <div className="chart-legend-row">{legend}</div>}
+            {/*
+              `minHeight` is a CSS floor on the box, never a number handed to
+              the chart: inflating the reported height past the real box drew
+              the axis below the visible area, where it was silently clipped.
+              The measurement and the drawing now always agree.
+            */}
+            <div className="plot-area" ref={ref} style={{ minHeight }}>
+              {size.width > 0 &&
+                children({ width: size.width, height: size.height })}
+            </div>
+          </>
         )}
       </div>
 

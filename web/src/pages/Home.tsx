@@ -5,16 +5,31 @@ import { GlobeHero } from '../globe/GlobeHero'
 import { METRICS } from '../globe/metrics'
 import { SPIKE_RAMP } from '../globe/spikes'
 import { useControls } from '../state/useControls'
+import { useAnimatedYear } from '../state/playback'
 import { CHARTS } from '../charts/registry'
 
 export function Home() {
   const [controls, set] = useControls()
   const navigate = useNavigate()
+  const frac = useAnimatedYear()
   const metric = METRICS.find((m) => m.key === controls.metric)!
 
   return (
     <div className="hero">
-      <GlobeHero onSelect={() => navigate(`/chart/${CHARTS[1].slug}`)} />
+      <GlobeHero
+        onSelect={(nuts3) => {
+          // Carry the clicked province through to the chart, so the ranking
+          // opens with it already pinned rather than losing the click.
+          set({ region: nuts3 })
+          navigate({
+            pathname: `/chart/${CHARTS[1].slug}`,
+            search: new URLSearchParams({
+              ...Object.fromEntries(new URLSearchParams(location.hash.split('?')[1] ?? '')),
+              region: nuts3,
+            }).toString(),
+          })
+        }}
+      />
 
       <div className="hero-overlay">
         <div className="hero-copy">
@@ -24,8 +39,9 @@ export function Home() {
           </h1>
           <p>
             Each spike stands on a Danish province and its height is the selected
-            measure in <span className="num">{controls.year}</span>, scaled against
-            the largest value across all years. Click a spike to open the ranking.
+            measure in <span className="num">{Math.round(frac)}</span>, scaled
+            against the largest value across all years. Click a spike to open the
+            ranking for that province.
           </p>
         </div>
 
@@ -44,7 +60,12 @@ export function Home() {
             ))}
           </div>
 
-          <p className="metric-axis">{metric.axis}</p>
+          <p className="metric-axis">
+            {metric.axis}
+            {metric.normalisable &&
+              controls.norm === 'per_1k_families' &&
+              ' per 1,000 families'}
+          </p>
           <div
             className="ramp"
             aria-hidden="true"

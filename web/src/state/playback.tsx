@@ -68,26 +68,51 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(1)
 
-  const listeners = useMemo(() => new Set<() => void>(), [])
+  /*
+    A ref, not a memo: the subscriber set is mutable instance state that lives
+    for the provider's lifetime, not a value derived from a render. Holding it
+    in useMemo invites the compiler to treat every add and delete as mutating
+    memoized output.
+  */
+  const listenersRef = useRef<Set<() => void>>(undefined)
+  listenersRef.current ??= new Set()
   const frac = useRef(controls.year)
   const target = useRef(controls.year)
   const raf = useRef(0)
   const prevTs = useRef(0)
   const running = useRef(false)
 
-  // Refs, not deps: the loop must never be torn down and rebuilt mid-flight.
-  const playingRef = useRef(playing)
-  playingRef.current = playing
-  const speedRef = useRef(speed)
-  speedRef.current = speed
-  const setRef = useRef(set)
-  setRef.current = set
+  /*
+    The loop reads these through refs rather than taking them as effect
+    dependencies, because it must never be torn down and rebuilt mid-flight —
+    a restart resets the frame delta and shows as a stutter.
 
-  target.current = controls.year
+    They are synced in effects rather than assigned during render: a render can
+    be thrown away or run twice, and a ref written during one that is discarded
+    leaves the loop acting on a state the UI never reached. These effects are
+    declared before the one that starts the loop, so by the time it runs the
+    refs already hold this render's values.
+  */
+  const playingRef = useRef(playing)
+  const speedRef = useRef(speed)
+  const setRef = useRef(set)
+
+  useEffect(() => {
+    playingRef.current = playing
+  }, [playing])
+  useEffect(() => {
+    speedRef.current = speed
+  }, [speed])
+  useEffect(() => {
+    setRef.current = set
+  }, [set])
+  useEffect(() => {
+    target.current = controls.year
+  }, [controls.year])
 
   const emit = useCallback(() => {
-    for (const fn of listeners) fn()
-  }, [listeners])
+    for (const fn of listenersRef.current!) fn()
+  }, [])
 
   /** Starts the frame loop if it is not already running. */
   const kick = useCallback(() => {
@@ -120,9 +145,15 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       frac.current = f
       if (moved) emit()
 
-      // Idle: nothing is playing and the tween has arrived, so stop burning
-      // frames until something asks for the playhead again.
-      if (!playingRef.current && !moved) {
+      /*
+        Idle means the playhead has *arrived*, not that it failed to move this
+        frame. The first frame after a kick always has dt = 0 — there is no
+        previous timestamp to measure against — so it never moves, and testing
+        `moved` here killed the loop before any tween could start: every year
+        picked from a heatmap cell, a box plot or the province controls stuck
+        on the year before it.
+      */
+      if (!playingRef.current && Math.abs(target.current - f) < EPS) {
         running.current = false
         return
       }
@@ -142,7 +173,20 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     kick()
   }, [controls.year, playing, kick, emit])
 
-  useEffect(() => () => cancelAnimationFrame(raf.current), [])
+  /*
+    Cancelling the frame without clearing `running` leaves the flag claiming a
+    loop that no longer exists, and `kick` then returns early forever — the
+    playhead freezes and no year change can restart it. StrictMode's
+    mount/cleanup/mount cycle hits this on every page load, so the two must be
+    cleared together.
+  */
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(raf.current)
+      running.current = false
+    },
+    [],
+  )
 
   const scrub = useCallback(
     (value: number) => {
@@ -170,12 +214,13 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setSpeed,
       scrub,
       subscribe: (fn) => {
-        listeners.add(fn)
-        return () => listeners.delete(fn)
+        const set = listenersRef.current!
+        set.add(fn)
+        return () => set.delete(fn)
       },
       getFrac: () => frac.current,
     }),
-    [playing, speed, scrub, listeners],
+    [playing, speed, scrub],
   )
 
   return <PlaybackContext value={clock}>{children}</PlaybackContext>

@@ -44,20 +44,51 @@
 
 
 ### Feedback
-- Improve the navigability of the dashboard - Dot navigation on the right side of the screen to jump to each chart, with the globe on the top one. Hover ing over the dot shows the chart title and clicking on it jumps to that chart. The dot for the current chart is highlighted. Also arrows control to go to preious and next chart. The dot navigation is always visible, even when scrolling down the page. Maybe the arrow control is hide and appears when hovering over the dot navigation.
-- Fit the chart in the screen. Make it resposive to the screen size. The chart should be always visible without scrolling down the page. The chart should be resizable to fit the screen size.
-- Improve animation speed and smoothness in the charts, when the playing the animation. The animation should be smooth and not jumpy. The animation should be fast enough to show the trend but not too fast to be confusing.
-- Add colors to the animated bubble scatter chart as in the jupyter notebook. The colors should be consistent with the other charts. The colors should be distinguishable and not too similar. The colors should be colorblind friendly. Also review all the colors in the whole charts to be consistent and colorblind friendly. The colors should be distinguishable and not too similar. When doing the color palette also update the info text to be consisten too.
-- Add Population data ( in the dataset is the number of families, so the name should not be population but number of families) to the globe view.
-- Add normalization options to all the charts that are needed with a toggle.
-- Smooth zoom controls in the globe view. The zoom should be smooth and not jumpy. The zoom should be fast enough to show the details but not too fast to be confusing.
-- Improve resolution of spikes in the globe view
-- In the chart 2 - Improve the explanation on how was divided, so explain what did we consider as east and west. And there is a empty space on the right bottom corner so maybe add the map of denmark with less opacity with the east and west areas highlighted. Also in property dropdown include all properties. And in the income incude both and then on the chart show both bars for each region. 
-- In the chart 3 - Keep the name of the region on the right side of the chart, so when the user hover over the line it shows the name highlighted but all the names appear always on the side. Also add the option to show the lines for all the regions or only the selected region. 
-- In the chart 4 - Add hover on the lines to show the values of the index for each year. Change the scale to multiplier (2x, 3x, 4x, 5x, 6x, 7x, 8x, 9x, 10x) instead of index. 
-- In the chart 5 - In the porperty put both and then on the chart show a single bubble combinen both values for each region. Also add the option to show the bubbles for all the regions or only the selected region.
-- Add a new page with charts and a video animated with the explanation, explaining how the trend went and why it happend (crisis 2008 and regulation in 2011 (tax)).
-- Add a new page where the user can create its own chart with the data and display it. So the user choose the type of plot and the variables
-- In nthe chart 10 - Add also the map and explanation about east and west
-- To be consisent review and change if needed that all the charts with provinces add the option to select the province and show only that province in the chart. Also add the option to show all the provinces in the chart.
-- Check that all the transistion when using the slidebar are smooth and not jumpy
+
+Review notes from the professor, and what was done about each.
+
+| # | Note | Status |
+|---|------|--------|
+| 1 | Dot navigation on the right, globe on top, hover shows the title, click jumps, current highlighted, prev/next arrows that appear on hover | Done — `components/DotNav.tsx`, fed by `nav.ts`; also binds the arrow keys, and carries the query string across every jump so filters survive |
+| 2 | Fit the chart to the screen, responsive, no scrolling | Done — chart pages and the builder are one viewport tall (`.page-fit`); `ChartFrame` measures its plot box and every chart sizes rows, panels and marks from it. Short viewports shed chrome; below 760px the page scrolls again |
+| 3 | Smoother, better-paced animation | Done — `state/playback.tsx` replaces the 420 ms `setInterval` with a continuous playhead. Charts interpolate between calendar years, so playback and slider drags are one motion. 2.5 years/s, with 0.5×/1×/2× |
+| 4 | Colour the bubble chart as in the notebook; review all colours for consistency and colourblind safety; update the info text to match | Done — new 11-province palette (`design/palette.ts`), cool = east, warm = west. **The audit found the existing 8-slot palette failing its own brief** (see below). Info text rewritten |
+| 5 | Add the families count to the globe (it is families, not population) | Done — the measure is labelled "Number of families" and the stale "not in the dataset yet" note is replaced |
+| 6 | Normalisation toggles where they are needed | Done — a `Normalise` control (raw / per 1,000 families) on the globe's count measures and the bubble chart; the builder exposes "Sales per 1,000 families" as a measure |
+| 7 | Smooth globe zoom | Done — the +/− buttons ease the orbit distance over 440 ms instead of jumping; wheel zoom slowed to run through the existing damping |
+| 8 | Improve spike resolution | Done — cone geometry 12 → 48 sides with 8 height segments, a tapered tip, and a bloom pass that resizes with the canvas |
+| 9 | Chart 2: explain the east/west split, fill the empty corner with a Denmark map, "both" in the property and income dropdowns with two bars per region | Done — full Great Belt explanation in the info panel, faint `DenmarkInset` in the empty corner (sized to what the corner can spare), and "Both" on both selects giving grouped bars |
+| 10 | Chart 3: keep every region name on the right, highlight on hover, option for all lines or only the selected one | Done — all eleven labelled at their own end point, de-collided with leader lines (`components/labels.ts`), plus the "Selected only" toggle |
+| 11 | Chart 4: hover to read the index per year; multiplier scale instead of index | Done — axis reads 1×, 2×, 3× …; hovering anywhere in a panel gives a crosshair and both multiples for that year |
+| 12 | Chart 5: "both" in property pooling into one bubble per region; all bubbles or only the selected one | Done — pooled with sales-weighted prices and summed sales (`poolRows`); province colours and a clickable legend |
+| 13 | New page: charts plus an animated explanation of the trend (2008 crisis, 2011 tax) | Done — `/story`, an auto-playing annotated timeline with chapters, scrubber and event markers. **Not a video file**; see the caveat below |
+| 14 | New page: build your own chart | Done — `/build`, pick bars/lines/scatter and the measures; the row grain stays province × year so every combination is meaningful |
+| 15 | Chart 10: add the map and the east/west explanation | Done — same `DenmarkInset` in the lower-left, full explanation in the hint and info panel |
+| 16 | Every province chart: select a province, or show all | Done — `Province` select plus a `Show: selected only / all provinces` toggle, wired through charts 1–6 and 8–9. Chart 7 (box plot) is excluded on purpose: it summarises the spread *between* provinces, and one province is a number, not a distribution |
+| 17 | Smooth slider transitions | Done — the same continuous playhead as #3; the slider thumb tracks it and eases onto the nearest year on release |
+
+#### Two things worth flagging
+
+**The existing palette was the problem, not just the bubble chart.** Running the
+new `scripts/validate_palette.js` (the validator PLAN.md §2.3 referenced but
+which did not exist) against the shipped 8-slot palette showed it failing its
+own colourblind-safety brief: the violet sat ΔE 7.4 from the blue under
+deuteranopia, the red ΔE 9.7 from the orange under tritanopia, and the yellow
+cleared only 2.1:1 contrast on the light paper. Slots 4, 7 and 8 were re-solved,
+keeping each slot's hue family, and now hold ΔE ≥ 11.5 in all four views. The
+new 11-province palette was solved the same way and holds ΔE ≥ 20.7 — for
+comparison, the notebook's hand-picked eleven collapse to ΔE 1.9 under
+protanopia, where its brown and red become the same colour. Eleven categories
+still cannot be made perfectly safe, so colour never carries identity alone:
+every mark is directly labelled, the legends name every province, and the table
+view carries the numbers. Re-run the validator before changing any colour.
+
+**The story page is an animated explainer, not a video file.** It plays on a
+timeline with chapters, a scrubber and annotations that appear as the playhead
+reaches them, which is what a narrated animation would do — but it is live SVG,
+not an mp4. If the deliverable has to be a video file, screen-record this page.
+More importantly: the chapter text *describes* shapes measured from this
+dataset, but the causes it names — the 2008 crash, the 2011 tax change, the rate
+cycle — are context that belongs to the report, not something a price series and
+an income series can establish on their own. The page says so on screen. Check
+and cite those claims in the report before relying on them.

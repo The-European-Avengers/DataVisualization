@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { max, quantile } from 'd3-array'
 import { scaleBand, scaleLinear } from 'd3-scale'
 import { AxisLeft } from '../components/axes'
@@ -8,7 +9,8 @@ import { useDataset } from '../data/DataContext'
 import { fmtRatio } from '../data/format'
 import { ratioOf, slice } from '../data/selectors'
 import { SERIES } from '../design/palette'
-import { useControls } from '../state/useControls'
+import { oneBasis, oneProperty, useControls } from '../state/useControls'
+import { useAnimatedYear } from '../state/playback'
 import { chartBySlug } from './registry'
 
 const M = { top: 26, right: 16, bottom: 44, left: 52 }
@@ -29,28 +31,38 @@ export function BoxPlot() {
   const { rows, meta, provinceByCode } = useDataset()
   const [controls, set] = useControls()
   const { tip, show, hide } = useTip()
+  const frac = useAnimatedYear()
 
-  const sliced = slice(rows, {
-    property_type: controls.property,
-    family_type: controls.family,
-  })
+  const basis = oneBasis(controls)
+  const sliced = useMemo(
+    () =>
+      slice(rows, {
+        property_type: oneProperty(controls),
+        family_type: controls.family,
+      }),
+    [rows, controls],
+  )
 
-  const boxes: Box[] = meta.years.map((year) => {
-    const inYear = sliced
-      .filter((r) => r.year === year)
-      .sort((a, b) => ratioOf(a, controls.basis) - ratioOf(b, controls.basis))
-    const values = inYear.map((r) => ratioOf(r, controls.basis))
-    return {
-      year,
-      min: values[0],
-      q1: quantile(values, 0.25)!,
-      median: quantile(values, 0.5)!,
-      q3: quantile(values, 0.75)!,
-      max: values[values.length - 1],
-      lowest: provinceByCode.get(inYear[0].nuts3)!.name,
-      highest: provinceByCode.get(inYear[inYear.length - 1].nuts3)!.name,
-    }
-  })
+  const boxes = useMemo<Box[]>(
+    () =>
+      meta.years.map((year) => {
+        const inYear = sliced
+          .filter((r) => r.year === year)
+          .sort((a, b) => ratioOf(a, basis) - ratioOf(b, basis))
+        const values = inYear.map((r) => ratioOf(r, basis))
+        return {
+          year,
+          min: values[0],
+          q1: quantile(values, 0.25)!,
+          median: quantile(values, 0.5)!,
+          q3: quantile(values, 0.75)!,
+          max: values[values.length - 1],
+          lowest: provinceByCode.get(inYear[0].nuts3)!.name,
+          highest: provinceByCode.get(inYear[inYear.length - 1].nuts3)!.name,
+        }
+      }),
+    [meta.years, sliced, basis, provinceByCode],
+  )
 
   const table = (
     <table className="data-table">
@@ -80,7 +92,19 @@ export function BoxPlot() {
   )
 
   return (
-    <ChartFrame def={def} table={table} height={460}>
+    <ChartFrame
+      def={def}
+      table={table}
+      hint={
+        <>
+          One box per year, summarising the eleven provincial ratios: the box
+          spans the middle half, the line across it is the median, and the
+          whiskers reach the cheapest and dearest province. A rising median
+          means the whole country got less affordable; a taller box means the
+          provinces drifted further apart.
+        </>
+      }
+    >
       {({ width, height }) => {
         const x = scaleBand<number>()
           .domain(meta.years)
@@ -103,7 +127,7 @@ export function BoxPlot() {
 
               {boxes.map((b) => {
                 const cx = x(b.year)! + x.bandwidth() / 2
-                const selected = b.year === controls.year
+                const selected = Math.round(frac) === b.year
                 return (
                   <g
                     key={b.year}
@@ -167,6 +191,18 @@ export function BoxPlot() {
                 )
               })}
 
+              {/* The playhead glides with the slider rather than snapping. */}
+              <line
+                x1={x(meta.years[0])! + x.step() * (frac - meta.years[0]) + x.bandwidth() / 2}
+                x2={x(meta.years[0])! + x.step() * (frac - meta.years[0]) + x.bandwidth() / 2}
+                y1={M.top}
+                y2={height - M.bottom}
+                stroke="var(--text-primary)"
+                strokeOpacity={0.35}
+                strokeWidth={1}
+                pointerEvents="none"
+              />
+
               {meta.years
                 .filter((y2) => y2 % 5 === 0)
                 .map((y2) => (
@@ -180,11 +216,6 @@ export function BoxPlot() {
                   </text>
                 ))}
             </svg>
-            <p className="chart-hint">
-              One box per year, summarising the eleven provincial ratios. A rising median
-              means the whole country got less affordable; a taller box means the
-              provinces drifted further apart. The selected year is highlighted.
-            </p>
             {tip && <Tooltip state={tip} width={width} />}
           </div>
         )

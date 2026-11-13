@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { max } from 'd3-array'
 import { scaleBand, scaleLinear } from 'd3-scale'
 import { AxisBottom } from '../components/axes'
@@ -6,39 +7,49 @@ import { Tooltip } from '../components/Tooltip'
 import { useTip } from '../components/useTip'
 import { useDataset } from '../data/DataContext'
 import { fmtInt, fmtRatio } from '../data/format'
-import { ratioOf, slice } from '../data/selectors'
+import { atFracYear, byProvince, ratioOf, slice } from '../data/selectors'
 import { FAMILY_COLOR } from '../design/palette'
-import { useControls } from '../state/useControls'
+import { oneBasis, oneProperty, useControls } from '../state/useControls'
+import { useAnimatedYear } from '../state/playback'
 import { chartBySlug } from './registry'
 
-const M = { top: 8, right: 70, bottom: 46, left: 150 }
-const ROW = 36
+const M = { top: 10, right: 76, bottom: 46, left: 152 }
+const MAX_ROW = 46
+const MIN_ROW = 20
 
 export function DumbbellFamily() {
   const def = chartBySlug.get('couples-vs-singles')!
   const { rows, provinceByCode } = useDataset()
-  const [controls] = useControls()
+  const [controls, set] = useControls()
   const { tip, show, hide } = useTip()
+  const frac = useAnimatedYear()
 
-  const couples = slice(rows, {
-    property_type: controls.property,
-    family_type: 'couples',
-  }).filter((r) => r.year === controls.year)
-  const singles = slice(rows, {
-    property_type: controls.property,
-    family_type: 'singles',
-  }).filter((r) => r.year === controls.year)
+  const basis = oneBasis(controls)
+  const property = oneProperty(controls)
 
-  const singlesByCode = new Map(singles.map((r) => [r.nuts3, r]))
-  const pairs = couples
-    .map((c) => ({
-      nuts3: c.nuts3,
-      name: provinceByCode.get(c.nuts3)!.name,
-      couples: ratioOf(c, controls.basis),
-      singles: ratioOf(singlesByCode.get(c.nuts3)!, controls.basis),
-      sales: c.n_sales,
-    }))
-    .sort((a, b) => b.singles - a.singles)
+  const pairs = useMemo(() => {
+    const couples = byProvince(
+      slice(rows, { property_type: property, family_type: 'couples' }),
+    )
+    const singles = byProvince(
+      slice(rows, { property_type: property, family_type: 'singles' }),
+    )
+    const singlesNow = new Map(atFracYear(singles, frac).map((r) => [r.nuts3, r]))
+    return atFracYear(couples, frac)
+      .map((c) => ({
+        nuts3: c.nuts3,
+        name: provinceByCode.get(c.nuts3)!.name,
+        couples: ratioOf(c, basis),
+        singles: ratioOf(singlesNow.get(c.nuts3)!, basis),
+        sales: c.n_sales,
+      }))
+      .sort((a, b) => b.singles - a.singles)
+  }, [rows, property, frac, basis, provinceByCode])
+
+  const shown =
+    controls.only && controls.region
+      ? pairs.filter((p) => p.nuts3 === controls.region)
+      : pairs
 
   const table = (
     <table className="data-table">
@@ -63,64 +74,106 @@ export function DumbbellFamily() {
     </table>
   )
 
-  const height = M.top + pairs.length * ROW + M.bottom
-
   return (
-    <ChartFrame def={def} table={table} height={height}>
-      {({ width }) => {
+    <ChartFrame
+      def={def}
+      table={table}
+      legend={
+        <ul className="legend">
+          <li>
+            <span className="swatch" style={{ background: FAMILY_COLOR.couples }} />
+            Couples
+          </li>
+          <li>
+            <span className="swatch" style={{ background: FAMILY_COLOR.singles }} />
+            Singles (hypothetical)
+          </li>
+        </ul>
+      }
+      hint={
+        <>
+          Both ends divide the <em>same</em> average sale price by each group’s
+          income, so they show what the average home would cost relative to that
+          income — not what each group actually pays. Singles more often buy
+          cheaper homes or rent, so their end is hypothetical.
+        </>
+      }
+    >
+      {({ width, height }) => {
+        const plotHeight = height - M.top - M.bottom
+        const rowHeight = Math.max(
+          MIN_ROW,
+          Math.min(MAX_ROW, plotHeight / Math.max(1, shown.length)),
+        )
+        const used = rowHeight * shown.length
+        const axisY = M.top + used
+
         const x = scaleLinear()
           .domain([0, (max(pairs, (p) => p.singles) ?? 1) * 1.05])
           .nice()
           .range([M.left, width - M.right])
         const y = scaleBand<string>()
-          .domain(pairs.map((p) => p.nuts3))
-          .range([M.top, height - M.bottom])
+          .domain(shown.map((p) => p.nuts3))
+          .range([M.top, axisY])
           .padding(0.3)
+
+        const dot = Math.max(4, Math.min(7, y.bandwidth() / 2.6))
 
         return (
           <div className="chart-plot">
-            <ul className="legend">
-              <li>
-                <span className="swatch" style={{ background: FAMILY_COLOR.couples }} />
-                Couples
-              </li>
-              <li>
-                <span className="swatch" style={{ background: FAMILY_COLOR.singles }} />
-                Singles (hypothetical)
-              </li>
-            </ul>
-
-            <svg width={width} height={height} role="img" aria-label={def.title}>
+            <svg
+              width={width}
+              height={height}
+              role="img"
+              aria-label={def.title}
+              onPointerLeave={hide}
+            >
               <AxisBottom
                 scale={x}
-                y={height - M.bottom}
+                y={axisY}
                 top={M.top}
                 label="Price-to-income ratio"
                 labelX={width - M.right}
               />
 
-              {pairs.map((p) => {
+              {shown.map((p) => {
                 const cy = y(p.nuts3)! + y.bandwidth() / 2
                 return (
                   <g
                     key={p.nuts3}
+                    className="bar-row"
                     onPointerMove={(e) =>
                       show(
                         e,
                         <>
                           <strong>{p.name}</strong>
+                          <div className="tip-da num">{Math.round(frac)}</div>
                           <dl>
-                            <dt>Couples</dt>
-                            <dd className="num">{fmtRatio(p.couples)}</dd>
-                            <dt>Singles</dt>
-                            <dd className="num">{fmtRatio(p.singles)}</dd>
-                            <dt>Sales</dt>
-                            <dd className="num">{fmtInt(p.sales)}</dd>
+                            <div className="tip-pair">
+                              <dt>Couples</dt>
+                              <dd className="num">{fmtRatio(p.couples)}</dd>
+                            </div>
+                            <div className="tip-pair">
+                              <dt>Singles</dt>
+                              <dd className="num">{fmtRatio(p.singles)}</dd>
+                            </div>
+                            <div className="tip-pair">
+                              <dt>Gap</dt>
+                              <dd className="num">
+                                {fmtRatio(p.singles - p.couples)}
+                              </dd>
+                            </div>
+                            <div className="tip-pair">
+                              <dt>Sales</dt>
+                              <dd className="num">{fmtInt(p.sales)}</dd>
+                            </div>
                           </dl>
                         </>,
                       )
                     }
-                    onPointerLeave={hide}
+                    onClick={() =>
+                      set({ region: controls.region === p.nuts3 ? null : p.nuts3 })
+                    }
                   >
                     <rect
                       x={M.left}
@@ -143,7 +196,7 @@ export function DumbbellFamily() {
                     <circle
                       cx={x(p.couples)}
                       cy={cy}
-                      r={6}
+                      r={dot}
                       fill={FAMILY_COLOR.couples}
                       stroke="var(--surface-1)"
                       strokeWidth={2}
@@ -151,25 +204,21 @@ export function DumbbellFamily() {
                     <circle
                       cx={x(p.singles)}
                       cy={cy}
-                      r={6}
+                      r={dot}
                       fill={FAMILY_COLOR.singles}
                       stroke="var(--surface-1)"
                       strokeWidth={2}
                     />
-                    <text className="bar-value num" x={x(p.singles) + 12} y={cy}>
-                      {fmtRatio(p.singles)}
-                    </text>
+                    {y.bandwidth() >= 12 && (
+                      <text className="bar-value num" x={x(p.singles) + 12} y={cy}>
+                        {fmtRatio(p.singles)}
+                      </text>
+                    )}
                   </g>
                 )
               })}
             </svg>
 
-            <p className="chart-hint">
-              Both figures divide the <em>same</em> average sale price by each group's
-              income, so they show what the average home would cost relative to that
-              income — not what each group actually pays. Singles more often buy cheaper
-              homes or rent, so their number is hypothetical.
-            </p>
             {tip && <Tooltip state={tip} width={width} />}
           </div>
         )
