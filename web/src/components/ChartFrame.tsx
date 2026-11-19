@@ -105,8 +105,17 @@ export function ChartFrame({
               The measurement and the drawing now always agree.
             */}
             <div className="plot-area" ref={ref} style={{ minHeight }}>
-              {size.width > 0 &&
-                children({ width: size.width, height: size.height })}
+              {/*
+                The measured box never scrolls; this inner one does. A chart
+                that wants more room than the screen has (small multiples)
+                scrolls here, where its scrollbar cannot shrink the box that
+                was measured — which is how the chart used to end up resizing
+                itself forever on platforms whose scrollbars take up width.
+              */}
+              <div className="plot-scroll">
+                {size.width > 0 &&
+                  children({ width: size.width, height: size.height })}
+              </div>
             </div>
           </>
         )}

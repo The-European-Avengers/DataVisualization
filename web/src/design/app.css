@@ -1,3 +1,17 @@
+/* ----------------------------------------------------------------- base */
+/*
+  Every <svg> here is a plot sized to its measured box, never an icon in a
+  line of text. As an inline box an SVG sits on the text baseline, so the line
+  box around it is its height plus the font's descender — about 5px of
+  phantom overflow under a plot that was drawn to fit exactly. Where the
+  scrollbars take layout width (Windows, Linux) that overflow raised a
+  scrollbar, the scrollbar shrank the measured box, the chart was redrawn
+  smaller, the overflow went away, and the whole thing ran again, forever.
+*/
+svg {
+  display: block;
+}
+
 /* ---------------------------------------------------------------- shell */
 .shell {
   display: flex;
@@ -428,12 +442,32 @@ main {
   flex: none;
   margin-bottom: 6px;
 }
-/* The measured box. Everything a chart draws is sized from this, so it must
-   contain nothing but the plot. */
+/*
+  The measured box. Everything a chart draws is sized from this, so it must
+  contain nothing but the plot — and nothing a chart draws may ever change its
+  size, or the measurement feeds back into itself. `overflow: hidden` is what
+  guarantees that: this box can never raise a scrollbar of its own, so its
+  content box is fixed by the layout above it and the chart below it cannot
+  argue. Scrolling, where a chart genuinely needs it, happens in `.plot-scroll`
+  inside — an absolutely positioned child, whose own scrollbars cannot reach
+  back out and resize the box that was measured.
+*/
 .plot-area {
   position: relative;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+}
+/*
+  Fills the measured box exactly. `overflow-x` stays hidden on purpose: a
+  horizontal scrollbar is the one that steals *height*, which is what turned a
+  one-off 15px width correction into an endless resize loop.
+*/
+.plot-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .table-scroll {
   flex: 1;
@@ -892,11 +926,8 @@ text.legend-mid {
 }
 /* Two levels of scroll, both inside the chart and never on the page: the plot
    scrolls when a chart genuinely wants more room than the screen has (small
-   multiples), and the body scrolls when the viewport is shorter than the
-   chart's own minimum. */
-.plot-area {
-  overflow: auto;
-}
+   multiples) — that is `.plot-scroll` above, not this box — and the body
+   scrolls when the viewport is shorter than the chart's own minimum. */
 /*
   `flex: 1` is what makes the chart appear finished rather than grow into
   place. Without it the body takes its height from its own content — which is
@@ -909,7 +940,10 @@ text.legend-mid {
 .page-fit .chart-body {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  /* Never `overflow: auto`: a horizontal scrollbar here would take height from
+     the plot inside it, which is the same feedback loop one level up. */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ============================================================== dot rail */
