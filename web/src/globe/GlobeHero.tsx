@@ -10,7 +10,7 @@ import {
   Vector3,
 } from 'three'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
-import { max } from 'd3-array'
+import { max, quantile } from 'd3-array'
 import { useDataset } from '../data/DataContext'
 import type { Row } from '../data/types'
 import { worldMesh, type GeoPath } from '../data/geo'
@@ -110,14 +110,15 @@ const LINE_COLOR = {
 } as const
 
 /*
-  Tallest spike, as a fraction of the globe radius. A needle could be six per
-  cent of the Earth's radius — 380 km — and still read as a needle. A province
-  extruded to that height is a wall a hundred kilometres wide and four times
-  as tall, and eleven of them hide the country they stand on. Two per cent
-  keeps every prism shorter than Jutland is wide, which is what makes the set
-  read as a relief map rather than as a skyline.
+  The height of a prism standing at the full unit, as a fraction of the globe
+  radius — three per cent is about 190 km. A needle could be six per cent and
+  still read as a needle; a province extruded that far is a wall a hundred
+  kilometres wide and four times as tall, and eleven of them hide the country
+  they stand on. This is the ceiling for the bulk of the data rather than for
+  all of it, since the unit is a percentile: Copenhagen stands half again as
+  tall, which is the point of looking at it.
 */
-const MAX_HEIGHT = 0.02
+const MAX_HEIGHT = 0.03
 const MIN_HEIGHT = 0.0015
 
 /** Per-province track: one entry per year, so any instant can be interpolated. */
@@ -171,6 +172,28 @@ const easeInOut = (k: number) =>
 const easeOut = (k: number) => 1 - (1 - k) ** 3
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+
+/**
+ * The value one full-height prism stands for.
+ *
+ * Not the maximum. Thirty years of Copenhagen put the top of this data a long
+ * way above the rest of it — a price-to-income ratio of 16.8 against a 2024
+ * median of 5.0 — and scaling to that leaves nine provinces sharing the
+ * bottom third of the scale, where a 20% difference in affordability is a few
+ * pixels of height. The ninetieth percentile puts the bulk of the data across
+ * the bulk of the range instead.
+ *
+ * Nothing is clipped: the heights stay strictly proportional to the values, so
+ * a prism twice as tall is still twice the measure. The few above the
+ * percentile simply stand taller than full height, which is the honest thing
+ * for them to do — and on a globe, unlike in a bar chart, there is no ceiling
+ * for them to hit.
+ */
+function unitFor(values: number[]): number {
+  const finite = values.filter(Number.isFinite)
+  const q = quantile(finite, 0.9)
+  return q && q > 0 ? q : (max(finite) ?? 1)
+}
 
 /** Reads a per-year track at a fractional year index. */
 function sampleAt(series: number[], pos: number): number {
@@ -270,12 +293,11 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
     const series = defs.map((d) => seriesFor(d.codes))
 
     // Counts are summed, so they only make sense against their own level's
-    // maximum; everything else is a mean and shares the leaves' ceiling.
+    // scale; everything else is a mean and shares the leaves' ceiling.
     const scaleLevel = metric.normalisable
       ? series
       : tree[LEAF_LEVEL].map((d) => seriesFor(d.codes))
-    const ceiling =
-      max(scaleLevel.flat(), normed) ?? 1
+    const ceiling = unitFor(scaleLevel.flat().map(normed))
 
     const out: Track[] = []
     defs.forEach((def, i) => {

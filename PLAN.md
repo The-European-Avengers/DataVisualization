@@ -235,10 +235,15 @@ permanent ≥1024px, overlay below.
   Group footprints come from topojson `merge`, which dissolves on arcs, so Jutland is the
   outline of Jutland and not four provinces stacked edge to edge. Pooling follows the east
   vs west chart: prices and ratios sales-weighted, income weighted by families, counts
-  summed. Heights share one ceiling taken from the leaves, so Denmark-as-one stands where
+  summed. Heights share one unit taken from the leaves, so Denmark-as-one stands where
   its ratio deserves rather than filling the frame for being the only block on screen —
   except for counts, which are sums and grow with every province added, and so are scaled
-  against their own level.
+  against their own level. That unit is the ninetieth percentile, not the maximum:
+  thirty years of Copenhagen put the top of this data a long way above the rest of it
+  (a ratio of 16.8 against a 2024 median of 5.0), and scaling to the maximum left nine
+  provinces sharing the bottom third of the range, where a fifth of a ratio point is a
+  few pixels. Nothing is clipped — heights stay strictly proportional, and the few values
+  above the percentile simply stand taller than the unit, which on a globe costs nothing.
 - **Spikes** are a custom three.js layer (`customLayerData` + `customThreeObject`), not the
   built-in `pointsData` layer, which can only draw flat-coloured cylinders. Each one is a
   group of provinces, extruded: the merged rings flattened onto the plane tangent at their
