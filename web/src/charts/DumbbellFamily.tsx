@@ -9,7 +9,13 @@ import { useDataset } from '../data/DataContext'
 import { fmtInt, fmtRatio } from '../data/format'
 import { atFracYear, byProvince, ratioOf, slice } from '../data/selectors'
 import { FAMILY_COLOR } from '../design/palette'
-import { oneBasis, oneProperty, useControls } from '../state/useControls'
+import {
+  oneBasis,
+  oneProperty,
+  showsRegion,
+  toggleRegion,
+  useControls,
+} from '../state/useControls'
 import { useAnimatedYear } from '../state/playback'
 import { chartBySlug } from './registry'
 
@@ -46,10 +52,7 @@ export function DumbbellFamily() {
       .sort((a, b) => b.singles - a.singles)
   }, [rows, property, frac, basis, provinceByCode])
 
-  const shown =
-    controls.only && controls.region
-      ? pairs.filter((p) => p.nuts3 === controls.region)
-      : pairs
+  const shown = pairs.filter((p) => showsRegion(controls, p.nuts3))
 
   const table = (
     <table className="data-table">
@@ -172,7 +175,7 @@ export function DumbbellFamily() {
                       )
                     }
                     onClick={() =>
-                      set({ region: controls.region === p.nuts3 ? null : p.nuts3 })
+                      set({ regions: toggleRegion(controls, p.nuts3) })
                     }
                   >
                     <rect
@@ -219,7 +222,7 @@ export function DumbbellFamily() {
               })}
             </svg>
 
-            {tip && <Tooltip state={tip} width={width} />}
+            {tip && <Tooltip state={tip} width={width} height={height} />}
           </div>
         )
       }}

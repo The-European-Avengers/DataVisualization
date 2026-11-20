@@ -28,6 +28,9 @@
 
   --drawer-w: 300px;
   --topbar-h: 56px;
+  /* Width of the dot rail down the right edge. Anything else pinned to that
+     edge offsets itself by this, so the two cannot grow into each other. */
+  --dot-rail-w: 50px;
 
   --radius: 6px;
   --shadow-1: 0 1px 2px rgb(11 11 11 / 6%), 0 4px 12px rgb(11 11 11 / 6%);

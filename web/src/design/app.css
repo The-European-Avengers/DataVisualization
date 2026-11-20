@@ -183,6 +183,8 @@ main {
 /* ----------------------------------------------------------------- hero */
 .hero {
   position: relative;
+  display: flex;
+  flex-direction: column;
   /* The top bar floats over the globe rather than sitting above it. */
   margin-top: calc(-1 * var(--topbar-h));
   min-height: 100dvh;
@@ -202,15 +204,27 @@ main {
   padding: 32px;
 }
 
+/*
+  Fills whatever the filter bar leaves. `1 0 auto` grows into spare room but
+  never shrinks below its own content, so a hero too tall for the viewport
+  still scrolls rather than collapsing.
+
+  The bottom padding used to be a guess at the filter bar's height — 104px
+  here, 150px narrow, 92px short — because the bar was positioned out of
+  flow. The guesses drifted from the real bar (97px against that 92px, so the
+  measure panel sat *on top* of it), and every one of them had to be redone
+  whenever the bar wrapped to another line. The bar is now in flow and this is
+  just the gap above it.
+*/
 .hero-overlay {
   position: relative;
   z-index: 10;
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
   gap: 24px;
   justify-content: space-between;
-  min-height: 100dvh;
-  padding: calc(var(--topbar-h) + 24px) 32px 104px;
+  padding: calc(var(--topbar-h) + 24px) 32px 28px;
   pointer-events: none;
 }
 .hero-overlay > * {
@@ -281,10 +295,7 @@ main {
 }
 
 .hero-filters {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  position: relative;
   z-index: 10;
   padding: 10px 16px;
   background: color-mix(in srgb, var(--surface-dark) 88%, transparent);
@@ -651,7 +662,7 @@ tspan.warn {
 
 @media (width < 720px) {
   .hero-overlay {
-    padding: 24px 16px 150px;
+    padding: 24px 16px 24px;
   }
   .page {
     padding-inline: 16px;
@@ -662,9 +673,15 @@ tspan.warn {
 }
 
 /* --------------------------------------------------------- globe controls */
+/*
+  Clear of the dot rail, which is fixed to the same edge and tall enough that
+  its lower arrow sat exactly where the zoom-in button was. There is no room
+  to drop below the rail either — the gap between its bottom and the filter
+  bar is shorter than this stack — so the controls step inboard instead.
+*/
 .globe-controls {
   position: absolute;
-  right: 18px;
+  right: calc(var(--dot-rail-w) + 14px);
   bottom: 110px;
   z-index: 12;
   display: flex;
@@ -790,10 +807,6 @@ text.inset-label {
 .region:hover {
   stroke: var(--text-primary);
   stroke-width: 1.5;
-}
-.region.selected {
-  stroke: var(--text-primary);
-  stroke-width: 2;
 }
 
 .chart-hint {
@@ -956,6 +969,9 @@ text.legend-mid {
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  /* Stated rather than taken from the content, so the token other elements
+     keep away from is the rail's real width. */
+  width: var(--dot-rail-w);
   padding: 8px 10px 8px 16px;
   transform: translateY(-50%);
 }
@@ -1123,6 +1139,119 @@ text.legend-mid {
   opacity: 1;
 }
 
+/* ------------------------------------------------------- province filter */
+/*
+  Matches the selects beside it: the trigger is a select-shaped button and the
+  panel hangs under it, so the control bar stays one row however many
+  provinces are ticked.
+*/
+.control-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.control-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.province-trigger {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 170px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+/* A filter that is actually filtering says so without being read. */
+.province-trigger[data-filtered] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.province-trigger .caret {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.province-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  min-width: 100%;
+  max-height: 340px;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
+.province-menu-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.province-menu ul {
+  padding: 4px;
+  margin: 0;
+  list-style: none;
+}
+/* `flex-direction` has to be stated: the `.control-bar label` rule these sit
+   inside stacks its label above its control, which would put every checkbox
+   on its own line above the province name. */
+.province-menu label {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 5px 8px;
+  font-size: 14px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-primary);
+  border-radius: var(--radius);
+}
+.province-menu label:hover {
+  background: var(--surface-2);
+}
+.province-menu input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+.link-button {
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: none;
+  border: 0;
+}
+.link-button:disabled {
+  cursor: default;
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
 .pill {
   padding: 5px 11px;
   font-size: 12px;
@@ -1139,10 +1268,6 @@ text.legend-mid {
   cursor: default;
   opacity: 0.45;
 }
-.control-check {
-  justify-content: flex-end;
-}
-
 .chart-titles {
   min-width: 0;
 }
@@ -1196,22 +1321,23 @@ text.series-label.is-active {
 .bubble {
   cursor: pointer;
 }
-.bar-row.is-selected rect {
-  stroke: var(--text-primary);
-  stroke-width: 1.2;
-}
 text.inset-label-east {
   text-anchor: end;
 }
 .denmark-inset {
   pointer-events: none;
 }
-.panel.is-selected .panel-title {
-  fill: var(--accent);
-}
 text.story-event-label {
   font-size: 10px;
   fill: var(--text-secondary);
+  /* The dashed year lines run the full height of the plot, so a caption wide
+     enough to reach the next one gets a halo of the card's own background and
+     stays readable where the two cross. `paint-order` puts the stroke behind
+     the glyphs instead of thickening them. */
+  paint-order: stroke;
+  stroke: var(--surface-1);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 /* ============================================================ the story */
@@ -1407,7 +1533,7 @@ text.story-event-label {
   }
   .hero-overlay {
     gap: 14px;
-    padding: calc(var(--topbar-h) + 14px) 28px 92px;
+    padding: calc(var(--topbar-h) + 14px) 28px 20px;
   }
   .hero-controls {
     padding: 12px 14px;
@@ -1482,6 +1608,13 @@ text.story-event-label {
   }
   .page-fit .chart {
     min-height: 420px;
+  }
+  /* The rail is narrower here — no arrows, smaller dots, less padding — so
+     the token moves with it and the globe controls step back out toward the
+     edge. It has to be redefined on the root: a custom property inherits down
+     the tree, and `.globe-controls` is not inside the rail. */
+  :root {
+    --dot-rail-w: 28px;
   }
   .dot-nav {
     gap: 0;

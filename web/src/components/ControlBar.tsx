@@ -1,9 +1,10 @@
+import { useEffect, useId, useRef, useState } from 'react'
 import { BASIS_LABEL, FAMILY_LABEL, NORM_LABEL, PROPERTY_LABEL } from '../data/format'
 import { useDataset } from '../data/DataContext'
 import type { ControlKey, Normalisation } from '../state/useControls'
 import type { BasisChoice, PropertyChoice } from '../state/useControls'
 import type { FamilyType } from '../data/types'
-import { useControls } from '../state/useControls'
+import { toggleRegion, useControls } from '../state/useControls'
 import { YearSlider } from './YearSlider'
 
 interface Props {
@@ -80,48 +81,13 @@ export function ControlBar({ uses, both = [] }: Props) {
         </label>
       )}
 
-      {/* Clicking a province on a chart pins it; this is the way back out. */}
-      {shows('region') && (
-        <label>
-          <span>Province</span>
-          <select
-            value={controls.region ?? ''}
-            onChange={(e) => set({ region: e.target.value || null })}
-          >
-            <option value="">All provinces</option>
-            {meta.provinces.map((p) => (
-              <option key={p.nuts3} value={p.nuts3}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-
       {/*
-        "Only this one" is the second half of the province select: picking a
-        province highlights it, this drops the other ten so a single series can
-        be read on its own scale.
+        Clicking a province on a chart adds it here, and this is the way back
+        out. The selection is a filter rather than a highlight, so it is a set
+        of checkboxes: the chart draws the provinces that are ticked, and an
+        empty selection draws all eleven.
       */}
-      {shows('only') && (
-        <label className="control-check">
-          <span>Show</span>
-          <button
-            type="button"
-            className="pill"
-            aria-pressed={controls.only}
-            disabled={!controls.region}
-            title={
-              controls.region
-                ? 'Draw only the selected province'
-                : 'Pick a province first'
-            }
-            onClick={() => set({ only: !controls.only })}
-          >
-            {controls.only ? 'Selected only' : 'All provinces'}
-          </button>
-        </label>
-      )}
+      {shows('region') && <ProvincePicker />}
 
       {shows('norm') && (
         <label>
@@ -140,6 +106,103 @@ export function ControlBar({ uses, both = [] }: Props) {
       )}
 
       {shows('year') && <YearSlider />}
+    </div>
+  )
+}
+
+/**
+ * The province filter: a button carrying the current selection, opening a
+ * panel of checkboxes. A native `<select multiple>` would need no code, but it
+ * is a fixed-height scroll box that cannot sit in a one-row toolbar, and on
+ * touch it collapses to the same single-choice wheel as an ordinary select.
+ */
+function ProvincePicker() {
+  const { meta } = useDataset()
+  const [controls, set] = useControls()
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef<HTMLDivElement | null>(null)
+  const listId = useId()
+
+  // Click-away and Escape, so the panel never strands itself open over a chart.
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (!boxRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const chosen = controls.regions
+  const label =
+    chosen.length === 0
+      ? 'All provinces'
+      : chosen.length === 1
+        ? (meta.provinces.find((p) => p.nuts3 === chosen[0])?.name ?? '1 province')
+        : `${chosen.length} provinces`
+
+  return (
+    <div className="control-field province-picker" ref={boxRef}>
+      <span className="control-label" id={`${listId}-label`}>
+        Province
+      </span>
+      <button
+        type="button"
+        className="province-trigger"
+        id={`${listId}-trigger`}
+        aria-expanded={open}
+        aria-controls={listId}
+        /* Both ids: the field's name *and* what it currently reads, so the
+           button announces "Province, 2 provinces" rather than just its
+           caption or just its value. */
+        aria-labelledby={`${listId}-label ${listId}-trigger`}
+        data-filtered={chosen.length > 0 || undefined}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="caret">
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div className="province-menu" id={listId} role="group">
+          <div className="province-menu-head">
+            <span>{chosen.length === 0 ? 'Showing all' : `${chosen.length} selected`}</span>
+            <button
+              type="button"
+              className="link-button"
+              disabled={chosen.length === 0}
+              onClick={() => set({ regions: [] })}
+            >
+              Clear
+            </button>
+          </div>
+          <ul>
+            {meta.provinces.map((p) => (
+              <li key={p.nuts3}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={chosen.includes(p.nuts3)}
+                    onChange={() =>
+                      set({ regions: toggleRegion(controls, p.nuts3) })
+                    }
+                  />
+                  <span>{p.name}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

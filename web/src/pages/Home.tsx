@@ -19,8 +19,8 @@ export function Home() {
       <GlobeHero
         onSelect={(nuts3) => {
           // Carry the clicked province through to the chart, so the ranking
-          // opens with it already pinned rather than losing the click.
-          set({ region: nuts3 })
+          // opens filtered to it rather than losing the click.
+          set({ regions: [nuts3] })
           navigate({
             pathname: `/chart/${CHARTS[1].slug}`,
             search: new URLSearchParams({

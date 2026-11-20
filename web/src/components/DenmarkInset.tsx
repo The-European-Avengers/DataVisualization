@@ -7,8 +7,8 @@ import { SIDE_COLOR } from '../design/palette'
 interface Props {
   width: number
   height: number
-  /** Province to outline, if one is selected. */
-  highlight?: string | null
+  /** Provinces to outline, if any are selected. */
+  highlight?: string[]
   /** Drawn faint, as a key rather than a chart. */
   opacity?: number
 }
@@ -21,7 +21,12 @@ interface Props {
  * ranking and the east/west line chart leave empty, and its job is to answer
  * "which half is which?" at a glance, not to be read for values.
  */
-export function DenmarkInset({ width, height, highlight, opacity = 0.45 }: Props) {
+export function DenmarkInset({
+  width,
+  height,
+  highlight = [],
+  opacity = 0.45,
+}: Props) {
   const { topology, provinceByCode } = useDataset()
   const features = useMemo(() => provinceFeatures(topology), [topology])
 
@@ -51,7 +56,7 @@ export function DenmarkInset({ width, height, highlight, opacity = 0.45 }: Props
     side: 'east' | 'west',
   ) =>
     list.map((f) => {
-      const selected = highlight === f.properties.nuts3
+      const selected = highlight.includes(f.properties.nuts3)
       return (
         <path
           key={f.properties.nuts3}

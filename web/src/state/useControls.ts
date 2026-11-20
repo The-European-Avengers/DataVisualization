@@ -36,7 +36,6 @@ export type ControlKey =
   | 'year'
   | 'region'
   | 'norm'
-  | 'only'
 
 export interface Controls {
   year: number
@@ -44,10 +43,12 @@ export interface Controls {
   family: FamilyType
   basis: BasisChoice
   metric: GlobeMetric
-  /** Province selected on the globe or a chart, or null for all. */
-  region: string | null
-  /** Hide every province but the selected one. */
-  only: boolean
+  /**
+   * The provinces to draw. Empty means all of them — a selection is a filter,
+   * not a highlight, so picking two provinces leaves two marks on the chart
+   * rather than eleven with two of them emphasised.
+   */
+  regions: string[]
   norm: Normalisation
 }
 
@@ -57,8 +58,7 @@ export const DEFAULTS: Controls = {
   family: 'all_families',
   basis: 'disposable',
   metric: 'ratio',
-  region: null,
-  only: false,
+  regions: [],
   norm: 'none',
 }
 
@@ -98,8 +98,9 @@ export function useControls(): [Controls, (patch: Partial<Controls>) => void] {
       family: oneOf(FAMILIES, params.get('family'), DEFAULTS.family),
       basis: oneOf(BASES, params.get('basis'), DEFAULTS.basis),
       metric: oneOf(METRICS, params.get('metric'), DEFAULTS.metric),
-      region: params.get('region'),
-      only: params.get('only') === '1',
+      // Comma-separated, so a one-province link from an older build still
+      // reads as a selection of one.
+      regions: [...new Set((params.get('region') ?? '').split(',').filter(Boolean))],
       norm: oneOf(NORMS, params.get('norm'), DEFAULTS.norm),
     }
   }, [params])
@@ -110,12 +111,20 @@ export function useControls(): [Controls, (patch: Partial<Controls>) => void] {
         (prev) => {
           const next = new URLSearchParams(prev)
           for (const [key, value] of Object.entries(patch)) {
+            // `regions` is the one list here, and it rides in the `region`
+            // parameter so existing links keep working.
+            if (Array.isArray(value)) {
+              if (value.length === 0) next.delete('region')
+              else next.set('region', value.join(','))
+              continue
+            }
+            // Every remaining control is a scalar that round-trips as text;
+            // a value equal to the default is left out so shared URLs carry
+            // only what was actually changed.
             const isDefault = value === DEFAULTS[key as keyof Controls]
-            if (value === null || value === undefined || isDefault) next.delete(key)
-            else next.set(key, value === true ? '1' : String(value))
+            if (value === undefined || isDefault) next.delete(key)
+            else next.set(key, String(value))
           }
-          // A province filter with nothing selected would hide every mark.
-          if (patch.region === null) next.delete('only')
           return next
         },
         { replace: true },
@@ -144,3 +153,16 @@ export const propertiesOf = (c: Controls): PropertyType[] =>
 /** The income bases a chart should draw, in legend order. */
 export const basesOf = (c: Controls): IncomeBasis[] =>
   c.basis === 'both' ? ['disposable', 'pretax'] : [c.basis]
+
+/**
+ * Province selection helpers. An empty selection means every province, so
+ * `showsRegion` is what every chart filters on and `toggleRegion` is what a
+ * click on a mark does.
+ */
+export const showsRegion = (c: Controls, code: string): boolean =>
+  c.regions.length === 0 || c.regions.includes(code)
+
+export const toggleRegion = (c: Controls, code: string): string[] =>
+  c.regions.includes(code)
+    ? c.regions.filter((r) => r !== code)
+    : [...c.regions, code]

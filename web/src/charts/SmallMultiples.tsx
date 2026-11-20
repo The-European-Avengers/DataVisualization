@@ -8,7 +8,13 @@ import { useTip } from '../components/useTip'
 import { useDataset } from '../data/DataContext'
 import { incomeOf, byProvince, slice } from '../data/selectors'
 import { INCOME_COLOR, PRICE_COLOR } from '../design/palette'
-import { oneBasis, oneProperty, useControls } from '../state/useControls'
+import {
+  oneBasis,
+  oneProperty,
+  showsRegion,
+  toggleRegion,
+  useControls,
+} from '../state/useControls'
 import { chartBySlug } from './registry'
 
 const M = { top: 22, right: 14, bottom: 30, left: 40 }
@@ -92,10 +98,8 @@ export function SmallMultiples() {
       const lastB = b[1][b[1].length - 1]
       return lastB.price - lastB.income - (lastA.price - lastA.income)
     })
-    return controls.only && controls.region
-      ? all.filter(([code]) => code === controls.region)
-      : all
-  }, [indexed, controls.only, controls.region])
+    return all.filter(([code]) => showsRegion(controls, code))
+  }, [indexed, controls])
 
   const ceiling =
     max([...indexed.values()].flat(), (d) => Math.max(d.price, d.income)) ?? 1
@@ -193,7 +197,6 @@ export function SmallMultiples() {
               {order.map(([code, list], i) => {
                 const col = i % columns
                 const panelRow = Math.floor(i / columns)
-                const isSelected = controls.region === code
                 const mark =
                   hovered?.code === code
                     ? list.find((d) => d.year === hovered.year)
@@ -204,7 +207,7 @@ export function SmallMultiples() {
                     transform={`translate(${col * panelWidth}, ${
                       panelRow * panelHeight
                     })`}
-                    className={isSelected ? 'panel is-selected' : 'panel'}
+                    className="panel"
                   >
                     <text className="panel-title" x={M.left} y={13}>
                       {provinceByCode.get(code)!.name}
@@ -324,14 +327,17 @@ export function SmallMultiples() {
                         )
                       }}
                       onClick={() =>
-                        set({ region: controls.region === code ? null : code })
+                        set({ regions: toggleRegion(controls, code) })
                       }
                     />
                   </g>
                 )
               })}
             </svg>
-            {tip && <Tooltip state={tip} width={width} />}
+            {/* `svgHeight`, not `height`: this chart's SVG can be taller than
+                the box it scrolls in, and the tip's coordinates are relative
+                to the SVG. */}
+            {tip && <Tooltip state={tip} width={width} height={svgHeight} />}
           </div>
         )
       }}

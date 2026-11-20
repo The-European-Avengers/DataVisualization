@@ -7,7 +7,12 @@ import { useDataset } from '../data/DataContext'
 import { fmtInt, fmtRatio } from '../data/format'
 import { isLowSample, ratioOf, slice } from '../data/selectors'
 import { SEQ_BLUE, seqColor } from '../design/palette'
-import { oneBasis, oneProperty, useControls } from '../state/useControls'
+import {
+  oneBasis,
+  oneProperty,
+  showsRegion,
+  useControls,
+} from '../state/useControls'
 import { useAnimatedYear } from '../state/playback'
 import { chartBySlug } from './registry'
 
@@ -39,10 +44,8 @@ export function Heatmap() {
       .filter((r) => r.year === last)
       .sort((a, b) => ratioOf(b, basis) - ratioOf(a, basis))
       .map((r) => r.nuts3)
-    return controls.only && controls.region
-      ? all.filter((code) => code === controls.region)
-      : all
-  }, [sliced, last, basis, controls.only, controls.region])
+    return all.filter((code) => showsRegion(controls, code))
+  }, [sliced, last, basis, controls])
 
   const cells = useMemo(
     () => new Map(sliced.map((r) => [`${r.nuts3}:${r.year}`, r])),
@@ -219,7 +222,7 @@ export function Heatmap() {
                 </text>
               </g>
             </svg>
-            {tip && <Tooltip state={tip} width={width} />}
+            {tip && <Tooltip state={tip} width={width} height={height} />}
           </div>
         )
       }}

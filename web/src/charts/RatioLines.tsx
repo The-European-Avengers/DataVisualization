@@ -11,7 +11,13 @@ import { useDataset } from '../data/DataContext'
 import { fmtInt, fmtRatio } from '../data/format'
 import { byProvince, isLowSample, ratioOf, slice } from '../data/selectors'
 import { MUTED, provinceColor } from '../design/palette'
-import { oneBasis, oneProperty, useControls } from '../state/useControls'
+import {
+  oneBasis,
+  oneProperty,
+  showsRegion,
+  toggleRegion,
+  useControls,
+} from '../state/useControls'
 import { chartBySlug } from './registry'
 import type { Row } from '../data/types'
 
@@ -34,14 +40,19 @@ export function RatioLines() {
     [rows, controls],
   )
   const series = useMemo(() => byProvince(sliced), [sliced])
-  const active = hovered ?? controls.region
+  /*
+    Only the pointer emphasises a line now. The province selection filters the
+    chart down to what is ticked, so a selected line is simply one of the lines
+    that is drawn — greying its neighbours as well would say the same thing
+    twice.
+  */
+  const active = hovered
 
-  /** "Selected only" drops the other ten rather than greying them. */
-  const visible = useMemo(() => {
-    if (!controls.only || !controls.region) return [...series.entries()]
-    const list = series.get(controls.region)
-    return list ? [[controls.region, list] as [string, Row[]]] : [...series.entries()]
-  }, [series, controls.only, controls.region])
+  /** The selection drops the other provinces rather than greying them. */
+  const visible = useMemo(
+    () => [...series.entries()].filter(([code]) => showsRegion(controls, code)),
+    [series, controls],
+  )
 
   const table = (
     <table className="data-table">
@@ -83,8 +94,8 @@ export function RatioLines() {
       hint={
         <>
           Every province is labelled at its own end point, so no legend lookup
-          is needed. Hover or click a line to bring it forward; “Selected only”
-          leaves it alone on the chart.
+          is needed. Hover a line to bring it forward; click one, or use the
+          Province filter, to narrow the chart to the provinces you pick.
         </>
       }
     >
@@ -218,7 +229,7 @@ export function RatioLines() {
                         )
                       }}
                       onClick={() =>
-                        set({ region: controls.region === code ? null : code })
+                        set({ regions: toggleRegion(controls, code) })
                       }
                     />
                   </g>
@@ -254,9 +265,7 @@ export function RatioLines() {
                       opacity={dim ? 0.65 : 1}
                       onPointerEnter={() => setHovered(label.code)}
                       onClick={() =>
-                        set({
-                          region: controls.region === label.code ? null : label.code,
-                        })
+                        set({ regions: toggleRegion(controls, label.code) })
                       }
                     >
                       {label.name}
@@ -265,7 +274,7 @@ export function RatioLines() {
                 )
               })}
             </svg>
-            {tip && <Tooltip state={tip} width={width} />}
+            {tip && <Tooltip state={tip} width={width} height={height} />}
           </div>
         )
       }}

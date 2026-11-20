@@ -6,7 +6,12 @@ import { AxisBottom, AxisLeft } from '../components/axes'
 import { ControlBar } from '../components/ControlBar'
 import { Tooltip } from '../components/Tooltip'
 import { useTip } from '../components/useTip'
-import { declutter } from '../components/labels'
+import {
+  TICK_ANGLE,
+  TICK_OFFSET,
+  declutter,
+  rotatedTickDepth,
+} from '../components/labels'
 import { useMeasure } from '../components/useMeasure'
 import { useDataset } from '../data/DataContext'
 import { fmtDkk, fmtInt, fmtRatio } from '../data/format'
@@ -20,7 +25,12 @@ import {
 } from '../data/selectors'
 import { MUTED, SIDE_COLOR, provinceColor } from '../design/palette'
 import { useAnimatedYear } from '../state/playback'
-import { oneBasis, oneProperty, useControls } from '../state/useControls'
+import {
+  oneBasis,
+  oneProperty,
+  showsRegion,
+  useControls,
+} from '../state/useControls'
 import type { Row } from '../data/types'
 
 /* Bars carry rotated province names under the axis and need the deeper
@@ -145,10 +155,8 @@ export function Build() {
 
   const visible = useMemo(
     () =>
-      controls.only && controls.region
-        ? sliced.filter((r) => r.nuts3 === controls.region)
-        : sliced,
-    [sliced, controls.only, controls.region],
+      sliced.filter((r) => showsRegion(controls, r.nuts3)),
+    [sliced, controls],
   )
 
   /** Pools a set of rows on one measure, respecting whether it is a count. */
@@ -207,7 +215,6 @@ export function Build() {
             'family',
             'basis',
             'region',
-            'only',
             ...(kind === 'line' ? [] : (['year'] as const)),
           ]}
         />
@@ -336,7 +343,7 @@ export function Build() {
                       show,
                     })}
                 </svg>
-                {tip && <Tooltip state={tip} width={size.width} />}
+                {tip && <Tooltip state={tip} width={size.width} height={size.height} />}
               </div>
             )}
           </div>
@@ -396,6 +403,20 @@ function renderBars({
     }))
     .sort((a, b) => b.value - a.value)
 
+  /*
+    The bottom margin is whatever the rotated province names need, not a
+    fixed figure: the longest of them, "West and South Zealand", reaches
+    7px further down than the constant that used to be here, and the plot
+    clipped the difference.
+  */
+  const bottom = Math.max(
+    M.bottom,
+    rotatedTickDepth(
+      data.map((d) => d.name),
+      height,
+    ),
+  )
+
   const x = scaleBand<string>()
     .domain(data.map((d) => d.row.nuts3))
     .range([M.left, width - M.right])
@@ -403,7 +424,7 @@ function renderBars({
   const y = scaleLinear()
     .domain([0, (max(data, (d) => d.value) ?? 1) * 1.08])
     .nice()
-    .range([height - M.bottom, M.top])
+    .range([height - bottom, M.top])
 
   return (
     <>
@@ -420,7 +441,7 @@ function renderBars({
             x={x(d.row.nuts3)}
             y={y(d.value)}
             width={x.bandwidth()}
-            height={Math.max(0, height - M.bottom - y(d.value))}
+            height={Math.max(0, height - bottom - y(d.value))}
             rx={4}
             fill={provinceColor(d.row.nuts3)}
             onPointerMove={(e) =>
@@ -441,8 +462,8 @@ function renderBars({
           <text
             className="tick-rotated"
             transform={`translate(${x(d.row.nuts3)! + x.bandwidth() / 2}, ${
-              height - M.bottom + 12
-            }) rotate(-35)`}
+              height - bottom + TICK_OFFSET
+            }) rotate(${-TICK_ANGLE})`}
           >
             {d.name}
           </text>

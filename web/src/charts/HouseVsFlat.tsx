@@ -9,7 +9,13 @@ import { useDataset } from '../data/DataContext'
 import { fmtInt, fmtRatio } from '../data/format'
 import { atFracYear, byProvince, isLowSample, ratioOf, slice } from '../data/selectors'
 import { PROPERTY_COLOR } from '../design/palette'
-import { oneBasis, useControls } from '../state/useControls'
+import { TICK_ANGLE, TICK_OFFSET, rotatedTickDepth } from '../components/labels'
+import {
+  oneBasis,
+  showsRegion,
+  toggleRegion,
+  useControls,
+} from '../state/useControls'
 import { useAnimatedYear } from '../state/playback'
 import { chartBySlug } from './registry'
 import type { Row } from '../data/types'
@@ -50,11 +56,8 @@ export function HouseVsFlat() {
       )
   }, [rows, controls.family, frac, basis, provinceByCode])
 
-  // Selecting a province highlights it; "Selected only" is what drops the rest.
-  const data =
-    controls.only && controls.region
-      ? all.filter((d) => d.nuts3 === controls.region)
-      : all
+  // Selecting provinces drops the rest, rather than emphasising them.
+  const data = all.filter((d) => showsRegion(controls, d.nuts3))
 
   const table = (
     <table className="data-table">
@@ -113,7 +116,8 @@ export function HouseVsFlat() {
         <>
           In City of Copenhagen most purchases are flats and houses are a thin
           market, so the house bar there rests on few transactions — every bar
-          under fifteen sales carries a ⚠. Click a province to pin it.
+          under fifteen sales carries a ⚠. Click a province to narrow the chart
+          to it; click again to put it back.
         </>
       }
     >
@@ -126,6 +130,15 @@ export function HouseVsFlat() {
           .domain(['house', 'flat'])
           .range([0, x.bandwidth()])
           .padding(0.12)
+        /* Measured from the names themselves rather than guessed at, so the
+           longest one cannot reach below the plot and be clipped. */
+        const bottom = Math.max(
+          M.bottom,
+          rotatedTickDepth(
+            data.map((d) => d.name),
+            height,
+          ),
+        )
         const y = scaleLinear()
           .domain([
             0,
@@ -134,7 +147,7 @@ export function HouseVsFlat() {
             ) ?? 1) * 1.08,
           ])
           .nice()
-          .range([height - M.bottom, M.top])
+          .range([height - bottom, M.top])
 
         const bar = (
           d: (typeof data)[number],
@@ -148,7 +161,7 @@ export function HouseVsFlat() {
                 x={x(d.nuts3)! + inner(kind)!}
                 y={y(value)}
                 width={inner.bandwidth()}
-                height={height - M.bottom - y(value)}
+                height={height - bottom - y(value)}
                 rx={4}
                 fill={
                   kind === 'house'
@@ -200,27 +213,23 @@ export function HouseVsFlat() {
               {data.map((d) => (
                 <g
                   key={d.nuts3}
-                  className={
-                    controls.region === d.nuts3 ? 'bar-row is-selected' : 'bar-row'
-                  }
-                  onClick={() =>
-                    set({ region: controls.region === d.nuts3 ? null : d.nuts3 })
-                  }
+                  className="bar-row"
+                  onClick={() => set({ regions: toggleRegion(controls, d.nuts3) })}
                 >
                   {bar(d, 'house', d.house)}
                   {bar(d, 'flat', d.flat)}
                   <text
                     className="tick-rotated"
                     transform={`translate(${x(d.nuts3)! + x.bandwidth() / 2}, ${
-                      height - M.bottom + 12
-                    }) rotate(-35)`}
+                      height - bottom + TICK_OFFSET
+                    }) rotate(${-TICK_ANGLE})`}
                   >
                     {d.name}
                   </text>
                 </g>
               ))}
             </svg>
-            {tip && <Tooltip state={tip} width={width} />}
+            {tip && <Tooltip state={tip} width={width} height={height} />}
           </div>
         )
       }}

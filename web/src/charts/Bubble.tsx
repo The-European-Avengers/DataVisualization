@@ -16,7 +16,13 @@ import {
   ratioOf,
 } from '../data/selectors'
 import { provinceColor } from '../design/palette'
-import { oneBasis, propertiesOf, useControls } from '../state/useControls'
+import {
+  oneBasis,
+  propertiesOf,
+  showsRegion,
+  toggleRegion,
+  useControls,
+} from '../state/useControls'
 import { useAnimatedYear } from '../state/playback'
 import type { Row } from '../data/types'
 import { chartBySlug } from './registry'
@@ -66,10 +72,7 @@ export function Bubble() {
   const sizeMax = max(all, sizeOf) ?? 1
 
   const frame = useMemo(() => atFracYear(series, frac), [series, frac])
-  const current =
-    controls.only && controls.region
-      ? frame.filter((r) => r.nuts3 === controls.region)
-      : frame
+  const current = frame.filter((r) => showsRegion(controls, r.nuts3))
 
   const table = (
     <table className="data-table">
@@ -121,12 +124,13 @@ export function Bubble() {
                 <button
                   type="button"
                   className={`legend-pick${
-                    controls.region === r.nuts3 ? ' is-active' : ''
+                    controls.regions.includes(r.nuts3) ? ' is-active' : ''
                   }`}
+                  aria-pressed={controls.regions.includes(r.nuts3)}
                   onPointerEnter={() => setHovered(r.nuts3)}
                   onPointerLeave={() => setHovered(null)}
                   onClick={() =>
-                    set({ region: controls.region === r.nuts3 ? null : r.nuts3 })
+                    set({ regions: toggleRegion(controls, r.nuts3) })
                   }
                 >
                   <span
@@ -157,7 +161,8 @@ export function Bubble() {
             ? 'sales per 1,000 families'
             : 'the number of sales'}
           {pooled && ', houses and flats pooled into one bubble per province'}.
-          Click a bubble to pin it.
+          Click a bubble, or a name in the key, to narrow every chart to the
+          provinces picked.
         </>
       }
     >
@@ -193,7 +198,9 @@ export function Bubble() {
         const xLabel = swapped ? 'Average price (DKK, log)' : 'Average income (DKK, log)'
         const yLabel = swapped ? 'Average income (DKK, log)' : 'Average price (DKK, log)'
 
-        const active = hovered ?? controls.region
+        // Only the pointer emphasises a bubble: the selection has already
+        // removed everything it does not include.
+        const active = hovered
 
         return (
           <div className="chart-plot">
@@ -328,7 +335,7 @@ export function Bubble() {
                         )
                       }}
                       onClick={() =>
-                        set({ region: controls.region === r.nuts3 ? null : r.nuts3 })
+                        set({ regions: toggleRegion(controls, r.nuts3) })
                       }
                     />
                   )
@@ -350,7 +357,7 @@ export function Bubble() {
                 ))}
             </svg>
 
-            {tip && <Tooltip state={tip} width={width} />}
+            {tip && <Tooltip state={tip} width={width} height={height} />}
           </div>
         )
       }}

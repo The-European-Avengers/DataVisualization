@@ -216,7 +216,7 @@ export function BoxPlot() {
                   </text>
                 ))}
             </svg>
-            {tip && <Tooltip state={tip} width={width} />}
+            {tip && <Tooltip state={tip} width={width} height={height} />}
           </div>
         )
       }}

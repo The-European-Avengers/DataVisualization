@@ -226,7 +226,7 @@ export function EastWest() {
                 )
               })}
             </svg>
-            {tip && <Tooltip state={tip} width={width} />}
+            {tip && <Tooltip state={tip} width={width} height={height} />}
           </div>
         )
       }}

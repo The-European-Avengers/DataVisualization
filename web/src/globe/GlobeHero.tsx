@@ -422,7 +422,18 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
               mesh,
               base: globe.getCoords(track.lat, track.lng, 0),
               current: existing?.current ?? 0,
-              startAt: existing?.startAt ?? Number.POSITIVE_INFINITY,
+              /*
+                `Infinity` means "wait for the reveal". A spike built *after*
+                the reveal has already happened must not wait for one that is
+                never coming again — and on a return visit it always is built
+                after, because the camera lands instantly inside
+                `onGlobeReady`, which runs before this layer exists. The
+                reveal then stamped an empty map, every spike that followed
+                was told to wait forever, and the globe sat there flat.
+              */
+              startAt:
+                existing?.startAt ??
+                (revealedRef.current ? performance.now() : Number.POSITIVE_INFINITY),
               track,
             }
             statesRef.current.set(track.nuts3, state)

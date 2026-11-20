@@ -9,7 +9,13 @@ import { fmtDkk, fmtInt, fmtRatio } from '../data/format'
 import { BORNHOLM, provinceFeatures } from '../data/geo'
 import { atFracYear, byProvince, isLowSample, ratioOf, slice } from '../data/selectors'
 import { SEQ_BLUE, seqColor } from '../design/palette'
-import { oneBasis, oneProperty, useControls } from '../state/useControls'
+import {
+  oneBasis,
+  oneProperty,
+  showsRegion,
+  toggleRegion,
+  useControls,
+} from '../state/useControls'
 import { useAnimatedYear } from '../state/playback'
 import { chartBySlug } from './registry'
 
@@ -36,7 +42,12 @@ export function Choropleth() {
       }),
     [rows, controls],
   )
-  // Fixed across all years so the colours mean the same thing as the year moves.
+  /*
+    Fixed across all years so the colours mean the same thing as the year
+    moves — and taken from every province, not just the selected ones, so
+    filtering the map down to two provinces does not silently rescale the
+    ramp under them.
+  */
   const [lo = 0, hi = 1] = extent(sliced, (r) => ratioOf(r, basis))
 
   /**
@@ -44,9 +55,19 @@ export function Choropleth() {
    * the map fade between years rather than flicking through thirty states.
    */
   const series = useMemo(() => byProvince(sliced), [sliced])
+  /*
+    The province selection is a filter here too: an unselected province keeps
+    its outline but loses its colour, so the map reads as "these are the ones
+    being compared" rather than as a highlight over a full map.
+  */
   const byCode = useMemo(
-    () => new Map(atFracYear(series, frac).map((r) => [r.nuts3, r])),
-    [series, frac],
+    () =>
+      new Map(
+        atFracYear(series, frac)
+          .filter((r) => showsRegion(controls, r.nuts3))
+          .map((r) => [r.nuts3, r]),
+      ),
+    [series, frac, controls],
   )
 
   const table = (
@@ -84,8 +105,9 @@ export function Choropleth() {
       hint={
         <>
           Darker means a home costs more years of income. Click a province to
-          pin it across every chart; the colour scale is fixed across all
-          thirty years, so the shade is comparable between years.
+          add it to the filter — the chart then shows only the provinces
+          picked, here and on every other chart. The colour scale is fixed
+          across all thirty years, so the shade is comparable between years.
         </>
       }
     >
@@ -166,16 +188,11 @@ export function Choropleth() {
             fill={fill(f.properties.nuts3)}
             stroke="var(--surface-1)"
             strokeWidth={0.8}
-            className={
-              controls.region === f.properties.nuts3 ? 'region selected' : 'region'
-            }
+            className="region"
             onPointerMove={(e) => show(e, tooltipFor(f.properties.nuts3))}
             onPointerLeave={hide}
             onClick={() =>
-              set({
-                region:
-                  controls.region === f.properties.nuts3 ? null : f.properties.nuts3,
-              })
+              set({ regions: toggleRegion(controls, f.properties.nuts3) })
             }
           />
         )
@@ -228,7 +245,7 @@ export function Choropleth() {
                 </text>
               </g>
             </svg>
-            {tip && <Tooltip state={tip} width={width} />}
+            {tip && <Tooltip state={tip} width={width} height={height} />}
           </div>
         )
       }}

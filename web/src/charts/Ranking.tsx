@@ -8,7 +8,13 @@ import { useDataset } from '../data/DataContext'
 import { BASIS_LABEL, PROPERTY_LABEL, fmtDkk, fmtInt, fmtRatio } from '../data/format'
 import { atFracYear, byProvince, isLowSample, ratioOf, slice } from '../data/selectors'
 import { BASIS_COLOR, PROPERTY_COLOR, SERIES, SIDE_COLOR } from '../design/palette'
-import { basesOf, propertiesOf, useControls } from '../state/useControls'
+import {
+  basesOf,
+  propertiesOf,
+  showsRegion,
+  toggleRegion,
+  useControls,
+} from '../state/useControls'
 import { useAnimatedYear } from '../state/playback'
 import type { IncomeBasis, PropertyType, Row } from '../data/types'
 import { chartBySlug } from './registry'
@@ -49,11 +55,20 @@ export function Ranking() {
     const out: Combo[] = []
     for (const [pi, property] of properties.entries()) {
       for (const [bi, basis] of bases.entries()) {
+        /*
+          The label names what *distinguishes* this bar from the others, so
+          with a single bar there is nothing to distinguish and it stays
+          empty — the tooltip and the table then call the number what it is,
+          "Ratio". Naming it after the income basis instead read as though the
+          figure were the income: "Disposable (after tax) 15.21".
+        */
         const label = both
           ? `${PROPERTY_LABEL[property]} · ${BASIS_LABEL[basis]}`
           : properties.length > 1
             ? PROPERTY_LABEL[property]
-            : BASIS_LABEL[basis]
+            : bases.length > 1
+              ? BASIS_LABEL[basis]
+              : ''
         out.push({
           key: `${property}:${basis}`,
           property,
@@ -105,10 +120,8 @@ export function Ranking() {
     return out
   }, [combos, rows, controls.family, frac, provinceByCode])
 
-  const shown =
-    controls.only && controls.region
-      ? data.filter((d) => d.nuts3 === controls.region)
-      : data
+  // The province selection is a filter: an empty one draws all eleven.
+  const shown = data.filter((d) => showsRegion(controls, d.nuts3))
 
   const table = (
     <table className="data-table">
@@ -256,7 +269,7 @@ export function Ranking() {
                   <DenmarkInset
                     width={insetWidth}
                     height={insetHeight}
-                    highlight={controls.region}
+                    highlight={controls.regions}
                   />
                 </g>
               )}
@@ -308,7 +321,7 @@ export function Ranking() {
                       })
                     }}
                     onClick={() =>
-                      set({ region: controls.region === d.nuts3 ? null : d.nuts3 })
+                      set({ regions: toggleRegion(controls, d.nuts3) })
                     }
                     className="bar-row"
                   >
@@ -355,7 +368,7 @@ export function Ranking() {
               })}
             </svg>
 
-            {tip && <Tooltip state={tip} width={width} />}
+            {tip && <Tooltip state={tip} width={width} height={height} />}
           </div>
         )
       }}

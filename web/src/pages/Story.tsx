@@ -3,6 +3,7 @@ import { extent, max } from 'd3-array'
 import { scaleLinear } from 'd3-scale'
 import { area, line } from 'd3-shape'
 import { AxisBottom, AxisLeft } from '../components/axes'
+import { MONO, SANS, textWidth } from '../components/labels'
 import { useMeasure } from '../components/useMeasure'
 import { useDataset } from '../data/DataContext'
 import { fmtRatio } from '../data/format'
@@ -11,6 +12,10 @@ import { PRICE_COLOR, SERIES } from '../design/palette'
 import { oneBasis, oneProperty, useControls } from '../state/useControls'
 
 const M = { top: 28, right: 28, bottom: 44, left: 56 }
+
+/** Event label layout: clearance from the line, and the height of one row. */
+const EVENT_GAP = 5
+const EVENT_ROW = 28
 
 /** Seconds of playback for the whole thirty years. */
 const RUN_SECONDS = 42
@@ -316,6 +321,51 @@ function StoryChart({
       : head
   const drawn = tip ? [...seen, tip] : seen
 
+  /*
+    Event labels, placed before anything is drawn.
+
+    They used to be pinned 5px to the right of their own dashed line with no
+    regard for each other, so "Pandemic surge" (2020) ran straight through
+    "Rates rise" (2022) — two years of axis is narrower than the first label.
+    Each label now takes the highest row it fits in, dropping to the next one
+    only when it would touch a label already placed, and flips to the left of
+    its line rather than running off the right edge of the plot.
+  */
+  const placedEvents = useMemo(() => {
+    const rows: { start: number; end: number }[][] = []
+    return EVENTS.map((event) => {
+      const ex = x(event.year)
+      const width_ = Math.max(
+        textWidth(String(event.year), `10px ${MONO}`),
+        textWidth(event.label, `10px ${SANS}`),
+      )
+      // Near the right edge there is no room to the right, so the label hangs
+      // off the other side of its line instead of overflowing the plot.
+      const flip = ex + EVENT_GAP + width_ > width - M.right
+      const start = flip ? ex - EVENT_GAP - width_ : ex + EVENT_GAP
+      const span = { start, end: start + width_ }
+
+      let row = 0
+      while (
+        rows[row]?.some(
+          (other) =>
+            span.start < other.end + EVENT_GAP && other.start < span.end + EVENT_GAP,
+        )
+      ) {
+        row++
+      }
+      ;(rows[row] ??= []).push(span)
+
+      return {
+        ...event,
+        ex,
+        textX: flip ? ex - EVENT_GAP : ex + EVENT_GAP,
+        anchor: flip ? ('end' as const) : ('start' as const),
+        y: M.top + 2 + row * EVENT_ROW,
+      }
+    })
+  }, [x, width])
+
   const drawLine = line<{ year: number; ratio: number }>()
     .x((p) => x(p.year))
     .y((p) => y(p.ratio))
@@ -373,26 +423,36 @@ function StoryChart({
         />
       )}
 
-      {/* Events appear as the playhead reaches them. */}
-      {EVENTS.map((event) => {
-        const reached = playhead >= event.year
-        if (!reached) return null
-        const ex = x(event.year)
+      {/* Events appear as the playhead reaches them, in the slot laid out for
+          them above — every event is placed, including the ones not yet
+          reached, so a label never jumps rows as the story plays. */}
+      {placedEvents.map((event) => {
+        if (playhead < event.year) return null
         return (
           <g key={event.year} className="story-event">
             <line
-              x1={ex}
-              x2={ex}
+              x1={event.ex}
+              x2={event.ex}
               y1={M.top}
               y2={height - M.bottom}
               stroke={SERIES[7]}
               strokeOpacity={0.5}
               strokeDasharray="4 4"
             />
-            <text className="story-event-label num" x={ex + 5} y={M.top + 2}>
+            <text
+              className="story-event-label num"
+              x={event.textX}
+              y={event.y}
+              textAnchor={event.anchor}
+            >
               {event.year}
             </text>
-            <text className="story-event-label" x={ex + 5} y={M.top + 15}>
+            <text
+              className="story-event-label"
+              x={event.textX}
+              y={event.y + 13}
+              textAnchor={event.anchor}
+            >
               {event.label}
             </text>
           </g>
