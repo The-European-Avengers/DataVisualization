@@ -217,10 +217,13 @@ permanent ≥1024px, overlay below.
 - `react-globe.gl`, textures **self-hosted** in `public/textures/` (no CDN dependency, no
   API key, no tile bill): the 4K Blue Marble paints first, then an 8K day map replaces it,
   both with anisotropic filtering because the landing camera looks across the surface
-  rather than down at it. Coastlines and borders are drawn as vector paths over the top —
-  Natural Earth for the world's coasts and national borders, the DAGI landsdele for the
-  Danish coastline — since no texture stays
-  sharp at the zoom this camera sits at.
+  rather than down at it. Coastlines and national borders are drawn as vector paths over
+  the top, from Natural Earth, since no texture stays sharp at the zoom this camera sits
+  at. Denmark is one of those countries and is drawn at the same generalisation as its
+  neighbours: the DAGI boundaries are an order of magnitude finer, and a coast traced to
+  the metre beside neighbours traced to the kilometre makes the neighbours look broken.
+  The fine outlines are used for the prisms instead, where they stand above the water
+  rather than beside it.
 - **The globe is a zoomable tree.** Four levels — Denmark, the two sides of the Great Belt,
   the islands (Zealand, Funen, Jutland, Bornholm), the eleven landsdele — chosen by the
   camera's height above the surface, so wheel, pinch, the zoom buttons, the four-step
@@ -252,9 +255,9 @@ permanent ≥1024px, overlay below.
   brightened by `onCustomLayerHover` — because translucent walls meeting at every height
   leave the top edge to be guessed at otherwise; it is sized in pixels, so every outline
   shares one resolution vector that the resize effect writes once. The ground layer was
-  dimmed to make room for it, and the lines between the landsdele dropped from it
-  altogether: the prisms already divide the country, and a second set of division lines a
-  few pixels below the first only blurs them. `customLayerLabel` gives the tooltip with province, value
+  dimmed to make room for it, and carries no landsdele divisions at all: the prisms
+  already divide the country, and a second set of division lines a few pixels below the
+  first only blurs them. `customLayerLabel` gives the tooltip with province, value
   and `n_sales`.
 - **Normalisation:** each metric scaled against its **global max across all years**, not the
   current year's max — otherwise every year looks identical while the slider moves.

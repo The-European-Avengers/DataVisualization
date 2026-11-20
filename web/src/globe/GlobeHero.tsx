@@ -13,7 +13,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { max } from 'd3-array'
 import { useDataset } from '../data/DataContext'
 import type { Row } from '../data/types'
-import { denmarkCoast, worldMesh, type GeoPath } from '../data/geo'
+import { worldMesh, type GeoPath } from '../data/geo'
 import { LOW_SAMPLE, normCount, slice } from '../data/selectors'
 import { fmtInt } from '../data/format'
 import { oneBasis, useControls } from '../state/useControls'
@@ -96,27 +96,18 @@ function levelAt(alt: number, current: number): number {
 }
 
 /*
-  Line weights for the boundaries drawn on the globe. Denmark is the subject,
-  so its coast is the brightest thing on the surface; the rest of the world is
-  context and sits close to the sea it is drawn over. Internal divisions —
-  province borders, national borders — are dimmer than coasts, so the shape of
-  the land still reads first.
+  Line weights for the boundaries drawn on the globe. They are context, and
+  sit close to the sea they are drawn over: the prisms and the lines around
+  their roofs are what the eye is meant to go to. National borders are dimmer
+  than coasts, so the shape of the land reads first. Denmark is not singled
+  out here — it is drawn from the same file, at the same generalisation and
+  the same weight as its neighbours, and the prisms standing on it are what
+  separate it from them.
 */
 const LINE_COLOR = {
-  /*
-    Denmark's own coastline is held back, now that a prism stands on each
-    province and carries a lit line around its roof. At full strength the two
-    sets of edges — one on the water, one a few kilometres above it — read as
-    a smear rather than as height. There is no `focus-border`: the divisions
-    between the landsdele are the prisms' job, not the ground's.
-  */
-  'focus-coast': 'rgba(226, 240, 255, 0.26)',
-  'world-coast': 'rgba(198, 218, 245, 0.24)',
-  'world-border': 'rgba(170, 192, 222, 0.12)',
+  coast: 'rgba(226, 240, 255, 0.26)',
+  border: 'rgba(186, 208, 238, 0.13)',
 } as const
-
-const pathStyle = (d: GeoPath) =>
-  `${d.focus ? 'focus' : 'world'}-${d.kind}` as keyof typeof LINE_COLOR
 
 /*
   Tallest spike, as a fraction of the globe radius. A needle could be six per
@@ -467,10 +458,6 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
     }
   }, [])
 
-  const boundaries = useMemo(
-    () => [...world, ...denmarkCoast(topology)],
-    [world, topology],
-  )
 
   /*
     globe.gl hands three-globe the renderer size exactly once, while it is
@@ -494,7 +481,7 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
         | undefined
       if (material?.resolution) material.resolution.copy(resolution)
     })
-  }, [size.width, size.height, boundaries])
+  }, [size.width, size.height, world])
 
   const onReady = useCallback(() => {
     const globe = globeRef.current
@@ -682,12 +669,12 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
           backgroundColor="rgba(0,0,0,0)"
           atmosphereColor="#5b7fd0"
           atmosphereAltitude={0.17}
-          pathsData={boundaries}
+          pathsData={world}
           pathPoints={(d: object) => (d as GeoPath).points}
           pathPointLat={(p) => (p as [number, number])[1]}
           pathPointLng={(p) => (p as [number, number])[0]}
           pathPointAlt={0.0004}
-          pathColor={(d: object) => LINE_COLOR[pathStyle(d as GeoPath)]}
+          pathColor={(d: object) => LINE_COLOR[(d as GeoPath).kind]}
           pathTransitionDuration={0}
           customLayerData={tracks}
           customThreeObject={createSpike}

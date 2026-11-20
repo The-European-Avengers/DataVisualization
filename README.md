@@ -157,7 +157,9 @@ flight is never flown over an untextured sphere.
 
 Coastlines and national borders come from `data/raw/countries-50m.json`
 (world-atlas 2.0.2, built from Natural Earth, public domain), copied to
-`web/public/data/` and fetched by the globe after mount. Denmark is dropped
-from that mesh: its coast is drawn from the DAGI landsdele instead, which are
-far more detailed, and two coastlines of different generalisations on the same
-shore read as a double exposure.
+`web/public/data/` and fetched by the globe after mount. Denmark included: it
+is drawn at the same generalisation as its neighbours — 297 points for the
+whole country, against the 17,000 in the DAGI boundaries — because two
+coastlines of different detail on the same map read as an error in the coarser
+one. The DAGI boundaries are used for the prisms, which stand above the water
+rather than beside it.

@@ -23,8 +23,6 @@ export interface GeoPath {
   points: [number, number][]
   /** An outer edge (coast or national border) or an internal division. */
   kind: 'coast' | 'border'
-  /** True for Denmark's own lines, which are drawn brighter than the rest. */
-  focus: boolean
 }
 
 /**
@@ -40,7 +38,6 @@ export interface GeoPath {
 function meshLines(
   topo: never,
   object: never,
-  focus: boolean,
   kinds: ('coast' | 'border')[],
 ): GeoPath[] {
   const run = (kind: 'coast' | 'border'): GeoPath[] =>
@@ -48,50 +45,23 @@ function meshLines(
       .coordinates.map((points) => ({
         points: points as [number, number][],
         kind,
-        focus,
       }))
   return kinds.flatMap(run)
 }
 
 /**
- * The Danish coastline, as lines — the outline of the eleven landsdele
- * together, without the borders between them.
- *
- * The divisions are left out because the globe already draws them, in the
- * only way that carries the data: each province stands on the map as its own
- * extruded prism. A second set of division lines on the ground underneath
- * says the same thing a second time, in a country small enough that the two
- * sets sit a few pixels apart.
- */
-export function denmarkCoast(topology: unknown): GeoPath[] {
-  const topo = topology as { objects: Record<string, unknown> }
-  return meshLines(topo as never, topo.objects.landsdele as never, true, [
-    'coast',
-  ])
-}
-
-/** ISO 3166-1 numeric for Denmark, as world-atlas ids them. */
-const DENMARK = '208'
-
-/**
  * World coastlines and national borders, for the globe.
  *
- * Denmark is dropped first: its coast is drawn from the DAGI boundaries
- * instead, which are an order of magnitude more detailed, and two coastlines
- * of different generalisations on the same shore read as a double exposure.
- * Dropping the country also turns its land border with Germany into an outer
- * edge of Germany, so that line is still drawn — once.
+ * Denmark is drawn from this file like every other country, at Natural
+ * Earth's generalisation: 297 points for the whole country against the
+ * 17,000 the DAGI boundaries carry. The detailed outlines have a job on this
+ * map, but it is standing on top of the prisms, not lying on the water — a
+ * coast traced to the metre beside neighbours traced to the kilometre makes
+ * the neighbours look broken.
  */
 export function worldMesh(topology: unknown): GeoPath[] {
-  const topo = topology as {
-    objects: { countries: { geometries: { id?: string }[] } }
-  }
-  const countries = topo.objects.countries
-  const withoutDenmark = {
-    ...countries,
-    geometries: countries.geometries.filter((g) => g.id !== DENMARK),
-  }
-  return meshLines(topo as never, withoutDenmark as never, false, [
+  const topo = topology as { objects: Record<string, unknown> }
+  return meshLines(topo as never, topo.objects.countries as never, [
     'coast',
     'border',
   ])
