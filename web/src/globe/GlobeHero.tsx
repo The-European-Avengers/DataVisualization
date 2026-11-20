@@ -12,18 +12,15 @@ import {
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { max } from 'd3-array'
 import { useDataset } from '../data/DataContext'
-import {
-  denmarkCoast,
-  provinceFeatures,
-  worldMesh,
-  type GeoPath,
-} from '../data/geo'
+import type { Row } from '../data/types'
+import { denmarkCoast, worldMesh, type GeoPath } from '../data/geo'
 import { LOW_SAMPLE, normCount, slice } from '../data/selectors'
 import { fmtInt } from '../data/format'
 import { oneBasis, useControls } from '../state/useControls'
 import { usePlayback } from '../state/playback'
 import { useMeasure } from '../components/useMeasure'
 import { metricByKey } from './metrics'
+import { LEAF_LEVEL, groupShapes, levels, poolProvinces } from './tree'
 import {
   createSpike,
   placeSpike,
@@ -33,21 +30,70 @@ import {
 } from './spikes'
 
 /**
+ * The ladder the tree hangs on: the camera's height above the surface, in
+ * globe radii, at which each level is read.
+ *
+ * The opening flight lands on the first rung, so the globe opens on Denmark
+ * as one prism and splits as the reader comes down. The rungs are close
+ * together on purpose — the deepest is only half the height of the shallowest
+ * — because the event worth seeing is a block splitting into its parts, and
+ * that cannot be seen if going a level deeper also pushes half the country
+ * out of frame. The zoom buttons step the ladder rather than multiplying a
+ * distance, so one press is exactly one level.
+ */
+const LEVEL_ALT = [0.2, 0.155, 0.12, 0.093] as const
+
+/** The height at which each level takes over: the midpoints of the ladder. */
+const LEVEL_FLOOR = [0.1775, 0.1375, 0.1065, 0] as const
+
+/**
  * The camera looks AT Denmark from the south, close to the surface, so the
  * spikes are seen across rather than down. globe.gl normally forbids this: it
  * installs a `change` listener on the orbit controls that forces the target
  * back to the globe's centre on every frame. `freeTheCamera` removes it.
  */
 const LOOK_AT = { lat: 56.1, lng: 10.8, alt: 0.01 }
-const EYE = { lat: 46.1, lng: 10.8, alt: 0.14 }
+const EYE = { lat: 46.1, lng: 10.8, alt: LEVEL_ALT[0] }
 const START_POV = { lat: 24, lng: -34, altitude: 2.8 }
 const WIDE_HOLD_MS = 800
 const FLIGHT_MS = 2600
 const GROW_STAGGER_MS = 90
 
-/** One press of +/− multiplies the camera distance by this, eased over ZOOM_MS. */
+/**
+ * The factor a plain zoom multiplies the camera distance by, eased over
+ * ZOOM_MS. Only used past the ends of the ladder: in between, a press of the
+ * zoom buttons moves to the next level's rung instead.
+ */
 const ZOOM_STEP = 0.74
 const ZOOM_MS = 440
+
+/** What each level is called, for the readout under the zoom buttons. */
+const LEVEL_NAME = ['Denmark', 'East and west', 'Islands', 'Provinces'] as const
+
+/**
+ * How far past a boundary the camera has to travel before the level follows.
+ * Without it, a camera parked on a threshold rebuilds the whole layer every
+ * time the orbit damping nudges it a thousandth of a radius.
+ */
+const LEVEL_HYSTERESIS = 0.08
+
+/**
+ * The band a height falls in, with the band it is already in widened at both
+ * ends: the floor the camera is standing on is lowered, and the floor above
+ * it raised, so leaving a level takes a real move in one direction.
+ */
+function levelAt(alt: number, current: number): number {
+  for (let i = 0; i < LEVEL_FLOOR.length; i++) {
+    const stretch =
+      i === current
+        ? 1 - LEVEL_HYSTERESIS
+        : i === current - 1
+          ? 1 + LEVEL_HYSTERESIS
+          : 1
+    if (alt >= LEVEL_FLOOR[i] * stretch) return i
+  }
+  return LEVEL_FLOOR.length - 1
+}
 
 /*
   Line weights for the boundaries drawn on the globe. Denmark is the subject,
@@ -87,6 +133,8 @@ const MIN_HEIGHT = 0.0015
 interface Track extends Region {
   name: string
   da: string
+  /** The provinces pooled into this one, for the tooltip and for drilling. */
+  codes: string[]
   values: number[]
   heights: number[]
   rampTops: number[]
@@ -156,7 +204,7 @@ function freeTheCamera(orbit: object) {
 }
 
 export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) {
-  const { rows, meta, provinceByCode, topology } = useDataset()
+  const { rows, meta, topology } = useDataset()
   const [controls] = useControls()
   const clock = usePlayback()
   const globeRef = useRef<GlobeMethods | undefined>(undefined)
@@ -166,6 +214,13 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
   const bloomRef = useRef<UnrealBloomPass | undefined>(undefined)
   const statesRef = useRef(new Map<string, SpikeState>())
   const revealedRef = useRef(false)
+  /*
+    How deep into the tree the camera is. The ref is what the frame loop
+    compares against — it runs sixty times a second and must not read state
+    through a closure — and the state is what rebuilds the layer.
+  */
+  const [level, setLevel] = useState(0)
+  const levelRef = useRef(0)
   const [boxRef, size] = useMeasure<HTMLDivElement>()
   const [webgl] = useState(hasWebgl)
 
@@ -173,30 +228,26 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
   const basis = oneBasis(controls)
   const firstYear = meta.years[0]
 
-  /*
-    The footprint each spike is extruded from: the same landsdele the
-    choropleth fills, as rings of [lng, lat].
-  */
-  const shapeByCode = useMemo(() => {
-    const out = new Map<string, [number, number][][][]>()
-    for (const f of provinceFeatures(topology)) {
-      const g = f.geometry
-      const polygons =
-        g.type === 'Polygon'
-          ? [g.coordinates as [number, number][][]]
-          : g.type === 'MultiPolygon'
-            ? (g.coordinates as [number, number][][][])
-            : []
-      out.set(f.properties.nuts3, polygons)
-    }
-    return out
-  }, [topology])
+  /** The four levels of the tree, and the shape each group is cut to. */
+  const tree = useMemo(() => levels(meta.provinces), [meta.provinces])
+  const shapes = useMemo(
+    () => tree.map((defs) => groupShapes(topology, defs)),
+    [tree, topology],
+  )
 
   /**
-   * One track per province covering all thirty years, rather than a snapshot
-   * of the selected year. The frame loop then reads each track at the
-   * continuous playhead, so the spikes rise and fall as one motion instead of
-   * being rebuilt — and re-diffed by globe.gl — thirty times a run.
+   * One track per group on the current level, covering all thirty years
+   * rather than a snapshot of the selected year. The frame loop then reads
+   * each track at the continuous playhead, so the prisms rise and fall as one
+   * motion instead of being rebuilt — and re-diffed by globe.gl — thirty
+   * times a run.
+   *
+   * Heights are scaled against the same ceiling at every level, taken from
+   * the leaves. A mean lives on one scale however many provinces are pooled
+   * into it, so Denmark-as-one stands at the height its ratio deserves next
+   * to the eleven it is made of, instead of filling the frame because it is
+   * the only prism on screen. A count does not: a sum grows with every
+   * province added to it, so for those the ceiling is the level's own.
    */
   const tracks = useMemo<Track[]>(() => {
     const sliced = slice(rows, {
@@ -204,34 +255,51 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
         controls.property === 'both' ? 'one_family_house' : controls.property,
       family_type: controls.family,
     })
-    const normed = (r: (typeof sliced)[number]) =>
+    const normed = (r: Row) =>
       metric.normalisable
         ? normCount(metric.value(r, basis), r, controls.norm)
         : metric.value(r, basis)
 
-    // Normalise against the maximum over ALL years, not the current one —
-    // otherwise every year looks identical while the playhead moves.
-    const ceiling = max(sliced, normed) ?? 1
-
-    const byCode = new Map<string, (typeof sliced)[number][]>()
+    const byCode = new Map<string, Row[]>()
     for (const r of sliced) {
       const list = byCode.get(r.nuts3)
       if (list) list.push(r)
       else byCode.set(r.nuts3, [r])
     }
+    for (const list of byCode.values()) list.sort((a, b) => a.year - b.year)
+
+    /** A group's pooled row for every year, in year order. */
+    const seriesFor = (codes: string[]): Row[] => {
+      const lists = codes.map((c) => byCode.get(c) ?? []).filter((l) => l.length)
+      if (lists.length === 0) return []
+      return lists[0].map((_, i) => poolProvinces(lists.map((l) => l[i])))
+    }
+
+    const defs = tree[level]
+    const series = defs.map((d) => seriesFor(d.codes))
+
+    // Counts are summed, so they only make sense against their own level's
+    // maximum; everything else is a mean and shares the leaves' ceiling.
+    const scaleLevel = metric.normalisable
+      ? series
+      : tree[LEAF_LEVEL].map((d) => seriesFor(d.codes))
+    const ceiling =
+      max(scaleLevel.flat(), normed) ?? 1
 
     const out: Track[] = []
-    for (const [code, list] of byCode) {
-      list.sort((a, b) => a.year - b.year)
-      const province = provinceByCode.get(code)!
+    defs.forEach((def, i) => {
+      const list = series[i]
+      if (list.length === 0) return
+      const shape = shapes[level].get(def.key)!
       const values = list.map(normed)
       out.push({
-        nuts3: code,
-        name: province.name,
-        da: province.da,
-        lat: province.centroid[1],
-        lng: province.centroid[0],
-        polygons: shapeByCode.get(code) ?? [],
+        nuts3: def.key,
+        name: def.name,
+        da: def.da,
+        codes: def.codes,
+        lat: shape.lat,
+        lng: shape.lng,
+        polygons: shape.polygons,
         values,
         rampTops: values.map((v) => (ceiling > 0 ? v / ceiling : 0)),
         heights: values.map(
@@ -239,12 +307,13 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
         ),
         sales: list.map((r) => r.n_sales),
       })
-    }
+    })
     return out
   }, [
     rows,
-    provinceByCode,
-    shapeByCode,
+    tree,
+    shapes,
+    level,
     controls.property,
     controls.family,
     controls.norm,
@@ -484,7 +553,18 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
     const tick = () => {
       const globe = globeRef.current
       const radius = globe?.getGlobeRadius()
-      if (radius) {
+      if (globe && radius) {
+        /*
+          The tree is read off the camera, not off a button: height above the
+          surface picks the level, so wheel, pinch, the zoom buttons and a
+          click that drills in all arrive at the same place.
+        */
+        const alt = globe.camera().position.length() / radius - 1
+        const next = levelAt(alt, levelRef.current)
+        if (next !== levelRef.current) {
+          levelRef.current = next
+          setLevel(next)
+        }
         const now = performance.now()
         // Frame-rate independent easing: the old fixed 0.12 per frame ran at
         // half speed on a 30 Hz display and double on a 120 Hz one.
@@ -541,6 +621,36 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
     }
     zoomRef.current = requestAnimationFrame(step)
   }, [])
+
+  /**
+   * Flies to the height a level sits at, for drilling in by clicking.
+   *
+   * The camera orbits a target on the surface, not the planet's centre, so
+   * "put the camera at this height" is not a scale of the distance it keeps
+   * from that target. Solving for the distance that lands it at the right
+   * radius is one quadratic, and keeps the drill-in going through the same
+   * eased zoom as the buttons.
+   */
+  const zoomToLevel = useCallback(
+    (next: number) => {
+      const globe = globeRef.current
+      if (!globe || next < 0 || next >= LEVEL_ALT.length) return
+      const camera = globe.camera()
+      const orbit = globe.controls()
+      const want = globe.getGlobeRadius() * (1 + LEVEL_ALT[next])
+
+      const target = orbit.target as Vector3
+      const from = camera.position.distanceTo(target)
+      const u = camera.position.clone().sub(target).divideScalar(from || 1)
+      const b = target.dot(u)
+      const c = target.lengthSq() - want * want
+      const disc = b * b - c
+      if (disc < 0 || from === 0) return
+      const to = -b + Math.sqrt(disc)
+      if (to > 0) zoom(to / from)
+    },
+    [zoom],
+  )
 
   useEffect(() => () => cancelAnimationFrame(zoomRef.current), [])
 
@@ -636,16 +746,70 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
             set(prev, false)
             set(d, true)
           }}
-          onCustomLayerClick={(d) => onSelect?.((d as Track).nuts3)}
+          onCustomLayerClick={(d) => {
+            const track = d as Track
+            // A leaf is a province and opens its ranking; anything above one
+            // is a branch, and clicking a branch walks into it.
+            if (track.codes.length === 1) onSelect?.(track.codes[0])
+            else zoomToLevel(levelRef.current + 1)
+          }}
         />
       )}
 
+      {/*
+        The tree, as a readout. Four steps, the current one filled: it says
+        both where the camera is and that there is somewhere further to go,
+        which a map that silently re-cuts itself as you zoom otherwise leaves
+        the reader to discover.
+      */}
+      <nav className="globe-levels" aria-label="Detail">
+        <span className="globe-level-name">{LEVEL_NAME[level]}</span>
+        <span className="globe-level-steps">
+          {LEVEL_NAME.map((name, i) => (
+            <button
+              key={name}
+              type="button"
+              className={i === level ? 'is-current' : undefined}
+              aria-current={i === level ? 'true' : undefined}
+              title={`Zoom to ${name.toLowerCase()}`}
+              onClick={() => zoomToLevel(i)}
+            >
+              <span className="visually-hidden">{name}</span>
+            </button>
+          ))}
+        </span>
+      </nav>
+
       <div className="globe-controls">
-        <button type="button" onClick={() => zoom(ZOOM_STEP)} title="Zoom in">
+        {/*
+          A press is a step down the tree while there is one left, and a plain
+          zoom once there is not — so the buttons drive the split the page is
+          about, without taking away the ability to get closer than the last
+          level.
+        */}
+        <button
+          type="button"
+          onClick={() =>
+            level < LEVEL_ALT.length - 1 ? zoomToLevel(level + 1) : zoom(ZOOM_STEP)
+          }
+          title={
+            level < LEVEL_ALT.length - 1
+              ? `Zoom in to ${LEVEL_NAME[level + 1].toLowerCase()}`
+              : 'Zoom in'
+          }
+        >
           <span aria-hidden="true">+</span>
           <span className="visually-hidden">Zoom in</span>
         </button>
-        <button type="button" onClick={() => zoom(1 / ZOOM_STEP)} title="Zoom out">
+        <button
+          type="button"
+          onClick={() => (level > 0 ? zoomToLevel(level - 1) : zoom(1 / ZOOM_STEP))}
+          title={
+            level > 0
+              ? `Zoom out to ${LEVEL_NAME[level - 1].toLowerCase()}`
+              : 'Zoom out'
+          }
+        >
           <span aria-hidden="true">−</span>
           <span className="visually-hidden">Zoom out</span>
         </button>

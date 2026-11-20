@@ -221,13 +221,28 @@ permanent ≥1024px, overlay below.
   Natural Earth for the world's coasts and national borders, the DAGI landsdele for the
   Danish coastline — since no texture stays
   sharp at the zoom this camera sits at.
+- **The globe is a zoomable tree.** Four levels — Denmark, the two sides of the Great Belt,
+  the islands (Zealand, Funen, Jutland, Bornholm), the eleven landsdele — chosen by the
+  camera's height above the surface, so wheel, pinch, the zoom buttons, the four-step
+  readout and a click on a block all arrive at the same place. The rungs sit close together
+  (0.2 down to 0.093 globe radii) because the event worth seeing is a block splitting, and
+  it cannot be seen if going deeper pushes half the country out of frame; the buttons step
+  the ladder rather than multiplying a distance, so one press is one level. A band is held
+  with 8% hysteresis, or orbit damping alone would rebuild the layer on a parked camera.
+  Group footprints come from topojson `merge`, which dissolves on arcs, so Jutland is the
+  outline of Jutland and not four provinces stacked edge to edge. Pooling follows the east
+  vs west chart: prices and ratios sales-weighted, income weighted by families, counts
+  summed. Heights share one ceiling taken from the leaves, so Denmark-as-one stands where
+  its ratio deserves rather than filling the frame for being the only block on screen —
+  except for counts, which are sums and grow with every province added, and so are scaled
+  against their own level.
 - **Spikes** are a custom three.js layer (`customLayerData` + `customThreeObject`), not the
-  built-in `pointsData` layer, which can only draw flat-coloured cylinders. Each one is the
-  province itself, extruded: the landsdel's own rings flattened onto the plane tangent at
-  its centroid, triangulated for the roof, walled edge by edge, and built standing from
+  built-in `pointsData` layer, which can only draw flat-coloured cylinders. Each one is a
+  group of provinces, extruded: the merged rings flattened onto the plane tangent at their
+  centroid, triangulated for the roof, walled edge by edge, and built standing from
   y = 0 to y = 1 so a single `scale.y` grows it every frame. A `ShaderMaterial` runs the
   ramp along the height and knocks the walls back behind the roof, with an
-  `UnrealBloomPass` on the globe's composer. Alpha blending, not additive: eleven volumes
+  `UnrealBloomPass` on the globe's composer. Alpha blending, not additive: volumes
   this wide stack additively straight to white, which is the one thing a single-hue ramp
   cannot survive. Front faces only — winding is derived per polygon from the outer ring's
   signed area, since nothing guarantees how the shapes shipped — which is worth a third of

@@ -704,6 +704,47 @@ tspan.warn {
   border-color: var(--accent-dark);
 }
 
+/*
+  The tree readout, directly under the zoom buttons it belongs to: the name of
+  the level the camera is in, and four steps standing for the four levels.
+*/
+.globe-levels {
+  position: absolute;
+  right: calc(var(--dot-rail-w) + 14px);
+  /* Directly above the zoom buttons, which are 3 x 34px plus two 6px gaps. */
+  bottom: 234px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
+}
+.globe-level-name {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-inverse-muted);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 55%);
+}
+.globe-level-steps {
+  display: flex;
+  gap: 4px;
+}
+.globe-level-steps button {
+  width: 16px;
+  height: 5px;
+  padding: 0;
+  background: color-mix(in srgb, var(--text-inverse) 28%, transparent);
+  border: 0;
+  border-radius: 3px;
+}
+.globe-level-steps button:hover {
+  background: color-mix(in srgb, var(--text-inverse) 55%, transparent);
+}
+.globe-level-steps button.is-current {
+  /* The globe's own accent, not the UI's blue: these stand for the prisms. */
+  background: #ef8878;
+}
+
 /* ------------------------------------------------------ chart page chrome */
 .drawer-home {
   padding-bottom: 8px;

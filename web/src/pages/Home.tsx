@@ -35,13 +35,15 @@ export function Home() {
         <div className="hero-copy">
           <h1>
             Thirty years of Danish housing,
-            <br /> one spike per province
+            <br /> one country, then eleven
           </h1>
           <p>
-            Each spike stands on a Danish province and its height is the selected
+            Denmark stands on the map as a single block, its height the selected
             measure in <span className="num">{Math.round(frac)}</span>, scaled
-            against the largest value across all years. Click a spike to open the
-            ranking for that province.
+            against the largest value across all years. Zoom in and it splits —
+            east and west of the Great Belt, then the islands, then the eleven
+            provinces. Click a block to go a level deeper, or a province to open
+            its ranking.
           </p>
         </div>
 

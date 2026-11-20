@@ -1,4 +1,4 @@
-import { feature, mesh } from 'topojson-client'
+import { feature, merge, mesh } from 'topojson-client'
 
 export interface ProvinceFeature {
   type: 'Feature'
@@ -95,4 +95,31 @@ export function worldMesh(topology: unknown): GeoPath[] {
     'coast',
     'border',
   ])
+}
+
+/**
+ * Several landsdele dissolved into one shape.
+ *
+ * `merge` works on the topology's arcs rather than on the rings, so a border
+ * two provinces share is dropped rather than drawn twice: the Jutland group
+ * comes back as the outline of Jutland, not as four provinces stacked
+ * edge to edge. Islands stay separate polygons of the result, which is what
+ * the globe wants — Zealand and Lolland are one group but two prisms' worth
+ * of footprint.
+ */
+export function mergedShape(
+  topology: unknown,
+  codes: string[],
+): [number, number][][][] {
+  const topo = topology as {
+    objects: {
+      landsdele: { geometries: { properties?: { nuts3?: string } }[] }
+    }
+  }
+  const wanted = new Set(codes)
+  const parts = topo.objects.landsdele.geometries.filter((g) =>
+    wanted.has(g.properties?.nuts3 ?? ''),
+  )
+  const shape = merge(topo as never, parts as never)
+  return shape.coordinates as [number, number][][][]
 }

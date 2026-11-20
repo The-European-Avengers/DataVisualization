@@ -19,7 +19,7 @@ export const STOPS: Stop[] = [
   {
     path: '/',
     label: 'Globe',
-    title: 'Thirty years of Danish housing, one spike per province',
+    title: 'Thirty years of Danish housing, from one block to eleven',
     kind: 'globe',
   },
   {
