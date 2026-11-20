@@ -1343,11 +1343,11 @@ text.story-event-label {
 /* ============================================================ the story */
 .story-page,
 .build-page {
-  max-width: 1320px;
+  max-width: 1440px;
 }
 .story-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 20px;
   align-items: start;
 }
@@ -1392,19 +1392,24 @@ text.story-event-label {
   height: 100%;
   background: var(--accent);
 }
+/*
+  One row: the chapter pills read as a timeline, so they are sized to fit the
+  chart column on a desktop width and only wrap once the page itself narrows.
+*/
 .story-chapters {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   padding: 0;
   margin: 0;
   list-style: none;
 }
 .story-chapters button {
   display: flex;
-  gap: 7px;
+  gap: 6px;
   align-items: baseline;
-  padding: 4px 10px;
+  padding: 4px 9px;
+  white-space: nowrap;
   font-size: 12px;
   color: var(--text-secondary);
   background: transparent;
@@ -1419,6 +1424,19 @@ text.story-event-label {
   font-size: 11px;
   opacity: 0.7;
 }
+/*
+  Between the widest desktop and the single-column breakpoint the chart column
+  is a little too narrow for seven pills, so they tighten rather than wrap.
+*/
+@media (width < 1400px) {
+  .story-chapters {
+    gap: 4px;
+  }
+  .story-chapters button {
+    gap: 5px;
+    padding: 3px 8px;
+  }
+}
 
 .story-caption {
   position: sticky;
@@ -1427,6 +1445,39 @@ text.story-event-label {
   background: var(--surface-2);
   border-radius: var(--radius);
 }
+/* The chapter stepper sits above the narration it moves through. */
+.story-steps {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.story-steps button {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.story-steps button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.story-steps button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.story-step-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
 .story-years {
   margin: 0;
   font-size: 12px;

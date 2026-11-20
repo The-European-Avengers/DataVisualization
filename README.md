@@ -146,3 +146,18 @@ dataset, but the causes it names — the 2008 crash, the 2011 tax change, the ra
 cycle — are context that belongs to the report, not something a price series and
 an income series can establish on their own. The page says so on screen. Check
 and cite those claims in the report before relying on them.
+
+### Map assets
+
+The globe is textured with an 8192 x 4096 day map from
+[Solar System Scope](https://www.solarsystemscope.com/textures/), licensed
+CC BY 4.0 — the credit is in the drawer footer, next to the data sources. The
+4096 x 2048 blue-marble image is kept as well and loads first, so the opening
+flight is never flown over an untextured sphere.
+
+Coastlines and national borders come from `data/raw/countries-50m.json`
+(world-atlas 2.0.2, built from Natural Earth, public domain), copied to
+`web/public/data/` and fetched by the globe after mount. Denmark is dropped
+from that mesh: its coast is drawn from the DAGI landsdele instead, which are
+far more detailed, and two coastlines of different generalisations on the same
+shore read as a double exposure.

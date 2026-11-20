@@ -46,7 +46,8 @@ export function Drawer({ open, onNavigate }: Props) {
           Download the report
         </a>
         <p className="source">
-          Statistics Denmark — EJEN77, INDKF111. Boundaries: DAGI.
+          Statistics Denmark — EJEN77, INDKF111. Boundaries: DAGI and Natural
+          Earth. Globe imagery: Solar System Scope, CC BY 4.0.
         </p>
       </div>
     </nav>

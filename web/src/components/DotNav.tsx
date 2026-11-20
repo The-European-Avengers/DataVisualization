@@ -5,8 +5,9 @@ import { usePlayback } from '../state/playback'
 
 /**
  * The dot rail: one dot per view, pinned to the right edge and always on
- * screen. The globe sits at the top, the ten charts follow, then the two
- * essay pages. Hovering a dot names the view, clicking it jumps there, and
+ * screen. The globe sits at the top, the story follows it — the narration is
+ * the way in to the charts, not an appendix after them — then the ten charts
+ * and the build page. Hovering a dot names the view, clicking it jumps there, and
  * the current dot is filled. The prev/next arrows live inside the rail and
  * only appear once it is hovered or focused, so at rest it is just the dots.
  *

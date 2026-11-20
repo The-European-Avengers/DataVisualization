@@ -22,6 +22,12 @@ export const STOPS: Stop[] = [
     title: 'Thirty years of Danish housing, one spike per province',
     kind: 'globe',
   },
+  {
+    path: '/story',
+    label: 'The story',
+    title: 'Why the line bends: the crash of 2008 and the tax freeze',
+    kind: 'page',
+  },
   ...CHARTS.map<Stop>((c) => ({
     path: `/chart/${c.slug}`,
     label: c.nav,
@@ -29,12 +35,6 @@ export const STOPS: Stop[] = [
     kind: 'chart',
     num: c.num,
   })),
-  {
-    path: '/story',
-    label: 'The story',
-    title: 'Why the line bends: the crash of 2008 and the tax freeze',
-    kind: 'page',
-  },
   {
     path: '/build',
     label: 'Build a chart',

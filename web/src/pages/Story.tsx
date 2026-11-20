@@ -25,6 +25,7 @@ interface Chapter {
   to: number
   title: string
   body: string
+  shortTitle: string
 }
 
 /**
@@ -42,42 +43,49 @@ const CHAPTERS: Chapter[] = [
     to: 2001,
     title: 'A quiet start',
     body: 'Through the late 1990s prices and incomes climb at close to the same pace. The price-to-income ratio drifts up gently, and the eleven provinces sit within about one ratio point of each other. Housing costs roughly the same number of years of income almost everywhere in Denmark.',
+    shortTitle: 'A quiet start'
   },
   {
     from: 2001,
     to: 2007,
     title: 'The boom, and the gap opens',
     body: 'From the early 2000s the price line pulls away from the income line and never comes back. The run-up is steepest around the capital: by 2007 City of Copenhagen is far above the national figure while West Jutland has barely moved. This is where the spread between provinces starts, and it is the single most important shape in the whole dataset.',
+    shortTitle: 'The boom',
   },
   {
     from: 2007,
     to: 2009,
-    title: '2008: the crash',
+    title: 'The crash',
     body: 'The global financial crisis reaches Danish housing. Prices fall hard and sales collapse — the thinnest transaction years in the series are here. Incomes keep rising slowly through it, so the ratio drops sharply: for two or three years, homes get genuinely more affordable, for the people still able to buy.',
+    shortTitle: 'The crash',
   },
   {
     from: 2009,
     to: 2013,
     title: 'The hangover, and the 2011 tax change',
     body: 'The recovery is slow and uneven. Around 2011 the tax treatment of housing tightens — the value of the mortgage interest deduction begins to be reduced, on top of the nominal freeze on property value tax that had been in place since the early 2000s. Capital-area prices turn up first; much of Jutland stays flat for years longer.',
+    shortTitle: 'The tax change',
   },
   {
     from: 2013,
     to: 2020,
     title: 'Cheap money',
     body: 'A long stretch of very low interest rates. Prices resume climbing while income growth stays modest, so the ratio grinds upwards almost everywhere. The box plot for these years gets taller every year: the country is not getting less affordable evenly, it is getting less affordable fastest where it was already worst.',
+    shortTitle: 'Cheap money',
   },
   {
     from: 2020,
     to: 2022,
     title: 'The pandemic surge',
     body: 'The sharpest two-year rise in the series. Sales spike, and prices with them. The surge reaches provinces that had been flat since the crash — this is the one episode where the whole country moves together.',
+    shortTitle: 'The pandemic surge',
   },
   {
     from: 2022,
     to: 2024,
     title: 'Rates return',
     body: 'Rising interest rates cool the market. Prices flatten or dip while incomes catch up a little, so the ratio eases back — but only back to roughly where it was in 2020, not to anything like the 1990s. Thirty years on, the gap between the cheapest and the dearest province is several times what it was in 1995.',
+    shortTitle: 'Rates return',
   },
 ]
 
@@ -167,6 +175,19 @@ export function Story() {
   const chapter =
     CHAPTERS.find((c) => playhead >= c.from && playhead < c.to) ??
     CHAPTERS[CHAPTERS.length - 1]
+  const chapterIndex = Math.max(0, CHAPTERS.indexOf(chapter))
+
+  /*
+    Stepping is a jump of the playhead, not a separate piece of state: the
+    chapter is read off the playhead, so moving the playhead to a chapter's
+    first year is what "go to that chapter" means — and the chart, the scrubber
+    and the pills all follow from it.
+  */
+  const goToChapter = useCallback((i: number) => {
+    const target = CHAPTERS[Math.min(CHAPTERS.length - 1, Math.max(0, i))]
+    setPlaying(false)
+    setPlayhead(target.from)
+  }, [])
 
   const progress = (playhead - first) / (last - first)
 
@@ -235,7 +256,7 @@ export function Story() {
             </div>
             <ul className="story-chapters">
               {CHAPTERS.map((c) => (
-                <li key={c.title}>
+                <li key={c.shortTitle}>
                   <button
                     type="button"
                     aria-current={c === chapter ? 'step' : undefined}
@@ -246,7 +267,7 @@ export function Story() {
                     }}
                   >
                     <span className="num">{c.from}</span>
-                    {c.title}
+                    {c.shortTitle}
                   </button>
                 </li>
               ))}
@@ -255,6 +276,27 @@ export function Story() {
         </section>
 
         <aside className="story-caption" aria-live="polite">
+          <nav className="story-steps" aria-label="Chapters">
+            <button
+              type="button"
+              onClick={() => goToChapter(chapterIndex - 1)}
+              disabled={chapterIndex === 0}
+              aria-label="Previous chapter"
+            >
+              ‹ Previous
+            </button>
+            <span className="story-step-count num" aria-hidden="true">
+              {chapterIndex + 1} / {CHAPTERS.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => goToChapter(chapterIndex + 1)}
+              disabled={chapterIndex === CHAPTERS.length - 1}
+              aria-label="Next chapter"
+            >
+              Next ›
+            </button>
+          </nav>
           <p className="story-years num">
             {chapter.from}–{chapter.to}
           </p>

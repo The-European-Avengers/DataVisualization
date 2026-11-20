@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Globe, { type GlobeMethods } from 'react-globe.gl'
-import { Mesh, MeshPhongMaterial, TextureLoader, Vector2, Vector3 } from 'three'
+import {
+  Mesh,
+  MeshPhongMaterial,
+  SRGBColorSpace,
+  type Texture,
+  TextureLoader,
+  Vector2,
+  Vector3,
+} from 'three'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { max } from 'd3-array'
 import { useDataset } from '../data/DataContext'
+import { provinceMesh, worldMesh, type GeoPath } from '../data/geo'
 import { LOW_SAMPLE, normCount, slice } from '../data/selectors'
 import { fmtInt } from '../data/format'
 import { oneBasis, useControls } from '../state/useControls'
@@ -28,6 +37,23 @@ const GROW_STAGGER_MS = 90
 /** One press of +/− multiplies the camera distance by this, eased over ZOOM_MS. */
 const ZOOM_STEP = 0.74
 const ZOOM_MS = 440
+
+/*
+  Line weights for the boundaries drawn on the globe. Denmark is the subject,
+  so its coast is the brightest thing on the surface; the rest of the world is
+  context and sits close to the sea it is drawn over. Internal divisions —
+  province borders, national borders — are dimmer than coasts, so the shape of
+  the land still reads first.
+*/
+const LINE_COLOR = {
+  'focus-coast': 'rgba(226, 240, 255, 0.85)',
+  'focus-border': 'rgba(186, 208, 238, 0.45)',
+  'world-coast': 'rgba(198, 218, 245, 0.42)',
+  'world-border': 'rgba(170, 192, 222, 0.2)',
+} as const
+
+const pathStyle = (d: GeoPath) =>
+  `${d.focus ? 'focus' : 'world'}-${d.kind}` as keyof typeof LINE_COLOR
 
 /** Tallest spike, as a fraction of the globe radius. */
 const MAX_HEIGHT = 0.06
@@ -109,7 +135,7 @@ function freeTheCamera(orbit: object) {
 }
 
 export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) {
-  const { rows, meta, provinceByCode } = useDataset()
+  const { rows, meta, provinceByCode, topology } = useDataset()
   const [controls] = useControls()
   const clock = usePlayback()
   const globeRef = useRef<GlobeMethods | undefined>(undefined)
@@ -245,18 +271,49 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
 
   /** Darkened earth: the spikes glow additively and need a dim ground. */
   const globeMaterial = useMemo(() => {
-    const material = new MeshPhongMaterial({ color: 0x59636f, shininess: 0.2 })
+    const material = new MeshPhongMaterial({ color: 0x49525c, shininess: 0.2 })
     const loader = new TextureLoader()
+    /*
+      Two resolutions, loaded in order. The 4K image is 1.4 MB and arrives
+      almost at once, so the opening flight is never flown over a grey sphere;
+      the 8K one is 4.5 MB and replaces it whenever it lands, which is what
+      the close camera over Denmark actually needs — at 4K the country is
+      about 90 px wide, at 8K about 180.
+    */
+    const applyMap = (texture: Texture) => {
+      /*
+        The camera ends up a few hundred kilometres above Denmark looking
+        north across Europe, which is the one case trilinear filtering handles
+        worst: at that angle a screen pixel covers a long, thin strip of
+        texture, so the mipmap chosen for the short axis blurs the long one
+        into mush. Anisotropic filtering samples along the strip instead.
+        Sixteen is the ceiling on current hardware and three.js clamps it down
+        to whatever the device actually supports.
+      */
+      texture.anisotropy = 16
+      // The imagery is authored in sRGB; without this three.js reads it as
+      // linear and the land comes out dark and flat.
+      texture.colorSpace = SRGBColorSpace
+      material.map?.dispose()
+      material.map = texture
+      material.needsUpdate = true
+    }
     loader.load(
       `${import.meta.env.BASE_URL}textures/earth-blue-marble.jpg`,
       (texture) => {
-        material.map = texture
-        material.needsUpdate = true
+        // Only if the sharp one has not already arrived: on a warm cache the
+        // 8K image can win the race, and this must not undo it.
+        if (!material.map) applyMap(texture)
       },
+    )
+    loader.load(
+      `${import.meta.env.BASE_URL}textures/earth-day-8k.jpg`,
+      applyMap,
     )
     loader.load(
       `${import.meta.env.BASE_URL}textures/earth-topology.png`,
       (texture) => {
+        texture.anisotropy = 16
         material.bumpMap = texture
         material.bumpScale = 6
         material.needsUpdate = true
@@ -264,6 +321,57 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
     )
     return material
   }, [])
+
+  /*
+    The satellite texture is 4096 px around the equator — about 90 px across
+    Denmark — so from the landing camera the coast is a smear. These are the
+    same province boundaries the choropleth draws, laid on the globe as lines:
+    vectors stay sharp at any zoom, so the country reads as Jutland, Funen and
+    Zealand rather than as a green blur, and each spike visibly stands on its
+    own province.
+  */
+  const [world, setWorld] = useState<GeoPath[]>([])
+
+  /*
+    The world boundaries are 756 KB and nothing on screen waits for them, so
+    they are fetched after mount rather than with the dashboard's own data:
+    the globe draws, the flight runs, and the coastlines fade in behind it.
+  */
+  useEffect(() => {
+    let live = true
+    fetch(`${import.meta.env.BASE_URL}data/countries-50m.json`)
+      .then((r) => r.json())
+      .then((topo) => live && setWorld(worldMesh(topo)))
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
+
+  const boundaries = useMemo(
+    () => [...world, ...provinceMesh(topology)],
+    [world, topology],
+  )
+
+  /*
+    globe.gl hands three-globe the renderer size exactly once, while it is
+    building the canvas — at which point the canvas is still 0 x 0 here,
+    because the box is measured on the first layout pass. The path layer's
+    fat lines size themselves in screen space from that number, so with a
+    stale 1 x 1 they collapse into a dotted smear. Re-injecting the real size
+    whenever the box changes is the whole fix.
+  */
+  useEffect(() => {
+    const globe = globeRef.current
+    if (!globe || size.width === 0 || size.height === 0) return
+    const resolution = globe.renderer().getSize(new Vector2())
+    globe.scene().traverse((obj) => {
+      const material = (obj as Mesh).material as
+        | { resolution?: Vector2 }
+        | undefined
+      if (material?.resolution) material.resolution.copy(resolution)
+    })
+  }, [size.width, size.height, boundaries])
 
   const onReady = useCallback(() => {
     const globe = globeRef.current
@@ -410,6 +518,13 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
           backgroundColor="rgba(0,0,0,0)"
           atmosphereColor="#5b7fd0"
           atmosphereAltitude={0.17}
+          pathsData={boundaries}
+          pathPoints={(d: object) => (d as GeoPath).points}
+          pathPointLat={(p) => (p as [number, number])[1]}
+          pathPointLng={(p) => (p as [number, number])[0]}
+          pathPointAlt={0.0004}
+          pathColor={(d: object) => LINE_COLOR[pathStyle(d as GeoPath)]}
+          pathTransitionDuration={0}
           customLayerData={tracks}
           customThreeObject={createSpike}
           customThreeObjectUpdate={(obj, d) => {
