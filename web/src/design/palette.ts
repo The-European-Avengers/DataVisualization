@@ -91,6 +91,34 @@ export function seqColor(t: number): string {
   return interpolateRgb(SEQ_BLUE[i], SEQ_BLUE[i + 1])(x - i)
 }
 
+/**
+ * The same ramp in red, for magnitude on a dark ground.
+ *
+ * The globe is the one dark surface in the dashboard, and a ramp built to
+ * read as light-to-dark on white paper reads as invisible-to-visible on it.
+ * This is the blue ramp's twin — one hue, seven steps of the same lightness
+ * spacing — in the red the globe uses as its accent. Read it backwards, from
+ * the dark end, and it works on the dark ground the way the blue one works on
+ * paper.
+ */
+export const SEQ_RED = [
+  '#fcdbd4',
+  '#f7b3a6',
+  '#ef8878',
+  '#e2583f',
+  '#bd3e28',
+  '#8f2c1c',
+  '#5c1a10',
+] as const
+
+/** Piecewise interpolation across the red ramp. t is clamped to [0, 1]. */
+export function seqRedColor(t: number): string {
+  if (!Number.isFinite(t)) return SEQ_RED[0]
+  const x = Math.min(Math.max(t, 0), 1) * (SEQ_RED.length - 1)
+  const i = Math.min(Math.floor(x), SEQ_RED.length - 2)
+  return interpolateRgb(SEQ_RED[i], SEQ_RED[i + 1])(x - i)
+}
+
 /** Binary comparisons take slots 1 and 2. */
 export const SIDE_COLOR = { east: SERIES[0], west: SERIES[1] } as const
 export const FAMILY_COLOR = { couples: SERIES[0], singles: SERIES[4] } as const

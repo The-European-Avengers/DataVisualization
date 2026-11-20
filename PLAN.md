@@ -71,8 +71,10 @@ Categorical slots, in fixed order, never cycled:
 `#2a78d6` blue · `#eb6834` orange · `#1baf7a` aqua · `#eda100` yellow ·
 `#e87ba4` magenta · `#008300` green · `#6250d6` violet · `#e34948` red
 
-Sequential (choropleth, heatmap, spikes): single blue ramp, light → dark,
-`#cde2fb → #0d366b`.
+Sequential (choropleth, heatmap): single blue ramp, light → dark,
+`#cde2fb → #0d366b`. The globe's prisms use its twin in red, `#fcdbd4 → #5c1a10`,
+read from the dark end — same single-hue construction, turned round for the one
+dark ground in the dashboard.
 
 Binary comparisons use slots 1 and 2 (east/west, house/flat, couples/singles).
 
@@ -85,11 +87,12 @@ colourblind-safe limit.** No chart gets an 11-colour legend. Instead:
 - **Small multiples (4):** 11 panels, 2 colours inside each panel (price vs income).
 - **Choropleth (1), heatmap (6), spikes:** sequential ramp — magnitude, not identity.
 
-**One documented exception.** The globe's spikes use an expressive multi-hue ramp
-(deep violet → blue → magenta → white), after the Kontur population-density maps, read
-at each spike's *global* value so only the tallest reach a white tip. It is confined to
-the hero, which is a scene rather than a reading surface, and it carries its own labelled
-legend. Every analytic chart keeps the single-hue blue sequential ramp above.
+**The hero's one departure is the hue, not the construction.** The globe's prisms run
+a single-hue ramp like every other magnitude encoding here, but in red and read from its
+dark end: the ground under them is a blue-green satellite image, and red is the hue
+furthest from it, so a prism reads as a mark on the map rather than as terrain. The ramp
+is sampled at each province's *global* value, so a low province stays deep maroon and
+only the highest reach the pale top, and the hero carries its own labelled legend.
 
 Before shipping any palette change, run the validator:
 `node scripts/validate_palette.js "<hex,...>" --mode light` (and `--mode dark`).
@@ -211,17 +214,33 @@ permanent ≥1024px, overlay below.
 
 ## 5. The globe (landing view)
 
-- `react-globe.gl`, Blue Marble texture **self-hosted** in `public/textures/` (no CDN
-  dependency, no API key, no tile bill).
+- `react-globe.gl`, textures **self-hosted** in `public/textures/` (no CDN dependency, no
+  API key, no tile bill): the 4K Blue Marble paints first, then an 8K day map replaces it,
+  both with anisotropic filtering because the landing camera looks across the surface
+  rather than down at it. Coastlines and borders are drawn as vector paths over the top —
+  Natural Earth for the world's coasts and national borders, the DAGI landsdele for the
+  Danish coastline — since no texture stays
+  sharp at the zoom this camera sits at.
 - **Spikes** are a custom three.js layer (`customLayerData` + `customThreeObject`), not the
-  built-in `pointsData` layer, which can only draw flat-coloured cylinders. Each spike is a
-  tapered cone with a `ShaderMaterial` that runs the ramp along its own height and additive
-  blending for glow, plus an `UnrealBloomPass` on the globe's composer so the bright tips
-  bleed light. The ramp is sampled at the spike's **global** value, so a short spike stays
-  violet and only the tallest reach a white tip — that is what makes the peaks read as peaks.
-  Orientation note: `Object3D.lookAt` on a mesh builds its basis from (target, position), so
-  aiming at the globe's centre points +Z *inward*; the cone needs `rotateX(-90°)`.
-  `customLayerLabel` gives the tooltip with province, value and `n_sales`.
+  built-in `pointsData` layer, which can only draw flat-coloured cylinders. Each one is the
+  province itself, extruded: the landsdel's own rings flattened onto the plane tangent at
+  its centroid, triangulated for the roof, walled edge by edge, and built standing from
+  y = 0 to y = 1 so a single `scale.y` grows it every frame. A `ShaderMaterial` runs the
+  ramp along the height and knocks the walls back behind the roof, with an
+  `UnrealBloomPass` on the globe's composer. Alpha blending, not additive: eleven volumes
+  this wide stack additively straight to white, which is the one thing a single-hue ramp
+  cannot survive. Front faces only — winding is derived per polygon from the outer ring's
+  signed area, since nothing guarantees how the shapes shipped — which is worth a third of
+  the frame rate on walls this large. Orientation note: a cone can be aimed with
+  `Object3D.lookAt`, but a province has a front, so the mesh takes an explicit east-up-south
+  basis. Each prism carries a `LineSegments2` around its roof — faint at rest, thickened and
+  brightened by `onCustomLayerHover` — because translucent walls meeting at every height
+  leave the top edge to be guessed at otherwise; it is sized in pixels, so every outline
+  shares one resolution vector that the resize effect writes once. The ground layer was
+  dimmed to make room for it, and the lines between the landsdele dropped from it
+  altogether: the prisms already divide the country, and a second set of division lines a
+  few pixels below the first only blurs them. `customLayerLabel` gives the tooltip with province, value
+  and `n_sales`.
 - **Normalisation:** each metric scaled against its **global max across all years**, not the
   current year's max — otherwise every year looks identical while the slider moves.
 - **Metric switch:** Population (or sales per 1,000 families until §3.2 lands), Number of

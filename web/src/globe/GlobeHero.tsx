@@ -12,14 +12,25 @@ import {
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { max } from 'd3-array'
 import { useDataset } from '../data/DataContext'
-import { provinceMesh, worldMesh, type GeoPath } from '../data/geo'
+import {
+  denmarkCoast,
+  provinceFeatures,
+  worldMesh,
+  type GeoPath,
+} from '../data/geo'
 import { LOW_SAMPLE, normCount, slice } from '../data/selectors'
 import { fmtInt } from '../data/format'
 import { oneBasis, useControls } from '../state/useControls'
 import { usePlayback } from '../state/playback'
 import { useMeasure } from '../components/useMeasure'
 import { metricByKey } from './metrics'
-import { createSpike, placeSpike } from './spikes'
+import {
+  createSpike,
+  placeSpike,
+  setSpikeHover,
+  setSpikeResolution,
+  type Region,
+} from './spikes'
 
 /**
  * The camera looks AT Denmark from the south, close to the surface, so the
@@ -46,26 +57,36 @@ const ZOOM_MS = 440
   the land still reads first.
 */
 const LINE_COLOR = {
-  'focus-coast': 'rgba(226, 240, 255, 0.85)',
-  'focus-border': 'rgba(186, 208, 238, 0.45)',
-  'world-coast': 'rgba(198, 218, 245, 0.42)',
-  'world-border': 'rgba(170, 192, 222, 0.2)',
+  /*
+    Denmark's own coastline is held back, now that a prism stands on each
+    province and carries a lit line around its roof. At full strength the two
+    sets of edges — one on the water, one a few kilometres above it — read as
+    a smear rather than as height. There is no `focus-border`: the divisions
+    between the landsdele are the prisms' job, not the ground's.
+  */
+  'focus-coast': 'rgba(226, 240, 255, 0.26)',
+  'world-coast': 'rgba(198, 218, 245, 0.24)',
+  'world-border': 'rgba(170, 192, 222, 0.12)',
 } as const
 
 const pathStyle = (d: GeoPath) =>
   `${d.focus ? 'focus' : 'world'}-${d.kind}` as keyof typeof LINE_COLOR
 
-/** Tallest spike, as a fraction of the globe radius. */
-const MAX_HEIGHT = 0.06
+/*
+  Tallest spike, as a fraction of the globe radius. A needle could be six per
+  cent of the Earth's radius — 380 km — and still read as a needle. A province
+  extruded to that height is a wall a hundred kilometres wide and four times
+  as tall, and eleven of them hide the country they stand on. Two per cent
+  keeps every prism shorter than Jutland is wide, which is what makes the set
+  read as a relief map rather than as a skyline.
+*/
+const MAX_HEIGHT = 0.02
 const MIN_HEIGHT = 0.0015
 
 /** Per-province track: one entry per year, so any instant can be interpolated. */
-interface Track {
-  nuts3: string
+interface Track extends Region {
   name: string
   da: string
-  lat: number
-  lng: number
   values: number[]
   heights: number[]
   rampTops: number[]
@@ -152,6 +173,25 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
   const basis = oneBasis(controls)
   const firstYear = meta.years[0]
 
+  /*
+    The footprint each spike is extruded from: the same landsdele the
+    choropleth fills, as rings of [lng, lat].
+  */
+  const shapeByCode = useMemo(() => {
+    const out = new Map<string, [number, number][][][]>()
+    for (const f of provinceFeatures(topology)) {
+      const g = f.geometry
+      const polygons =
+        g.type === 'Polygon'
+          ? [g.coordinates as [number, number][][]]
+          : g.type === 'MultiPolygon'
+            ? (g.coordinates as [number, number][][][])
+            : []
+      out.set(f.properties.nuts3, polygons)
+    }
+    return out
+  }, [topology])
+
   /**
    * One track per province covering all thirty years, rather than a snapshot
    * of the selected year. The frame loop then reads each track at the
@@ -191,6 +231,7 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
         da: province.da,
         lat: province.centroid[1],
         lng: province.centroid[0],
+        polygons: shapeByCode.get(code) ?? [],
         values,
         rampTops: values.map((v) => (ceiling > 0 ? v / ceiling : 0)),
         heights: values.map(
@@ -200,7 +241,16 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
       })
     }
     return out
-  }, [rows, provinceByCode, controls.property, controls.family, controls.norm, basis, metric])
+  }, [
+    rows,
+    provinceByCode,
+    shapeByCode,
+    controls.property,
+    controls.family,
+    controls.norm,
+    basis,
+    metric,
+  ])
 
   /** Spikes rise out of the ground once the camera has landed. */
   const reveal = useCallback(() => {
@@ -349,7 +399,7 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
   }, [])
 
   const boundaries = useMemo(
-    () => [...world, ...provinceMesh(topology)],
+    () => [...world, ...denmarkCoast(topology)],
     [world, topology],
   )
 
@@ -365,6 +415,10 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
     const globe = globeRef.current
     if (!globe || size.width === 0 || size.height === 0) return
     const resolution = globe.renderer().getSize(new Vector2())
+    // The prism outlines are sized in pixels too, and are rebuilt whenever a
+    // control changes, so they read the size from a vector they all share
+    // rather than being walked over here.
+    setSpikeResolution(resolution.x, resolution.y)
     globe.scene().traverse((obj) => {
       const material = (obj as Mesh).material as
         | { resolution?: Vector2 }
@@ -573,6 +627,14 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
                   sales < LOW_SAMPLE ? ' <i>⚠ low sample</i>' : ''
                 }</div>
               </div>`
+          }}
+          onCustomLayerHover={(d, prev) => {
+            const set = (t: object | null, on: boolean) => {
+              const state = t && statesRef.current.get((t as Track).nuts3)
+              if (state) setSpikeHover(state.mesh, on)
+            }
+            set(prev, false)
+            set(d, true)
           }}
           onCustomLayerClick={(d) => onSelect?.((d as Track).nuts3)}
         />

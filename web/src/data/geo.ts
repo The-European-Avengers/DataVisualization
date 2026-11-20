@@ -34,12 +34,14 @@ export interface GeoPath {
  * arcs: a border between two regions comes back once, not twice stacked on
  * each other — which matters for translucent lines, since a doubled line
  * draws twice as bright as the coast beside it. The outer edges and the
- * internal divisions come back as separate runs so each can be weighted.
+ * internal divisions are meshed separately so a caller can weight them
+ * differently, or ask for only one of them.
  */
 function meshLines(
   topo: never,
   object: never,
   focus: boolean,
+  kinds: ('coast' | 'border')[],
 ): GeoPath[] {
   const run = (kind: 'coast' | 'border'): GeoPath[] =>
     mesh(topo, object, (a, b) => (kind === 'coast' ? a === b : a !== b))
@@ -48,13 +50,24 @@ function meshLines(
         kind,
         focus,
       }))
-  return [...run('coast'), ...run('border')]
+  return kinds.flatMap(run)
 }
 
-/** The eleven landsdele as lines: the Danish coast, and the borders between. */
-export function provinceMesh(topology: unknown): GeoPath[] {
+/**
+ * The Danish coastline, as lines — the outline of the eleven landsdele
+ * together, without the borders between them.
+ *
+ * The divisions are left out because the globe already draws them, in the
+ * only way that carries the data: each province stands on the map as its own
+ * extruded prism. A second set of division lines on the ground underneath
+ * says the same thing a second time, in a country small enough that the two
+ * sets sit a few pixels apart.
+ */
+export function denmarkCoast(topology: unknown): GeoPath[] {
   const topo = topology as { objects: Record<string, unknown> }
-  return meshLines(topo as never, topo.objects.landsdele as never, true)
+  return meshLines(topo as never, topo.objects.landsdele as never, true, [
+    'coast',
+  ])
 }
 
 /** ISO 3166-1 numeric for Denmark, as world-atlas ids them. */
@@ -78,5 +91,8 @@ export function worldMesh(topology: unknown): GeoPath[] {
     ...countries,
     geometries: countries.geometries.filter((g) => g.id !== DENMARK),
   }
-  return meshLines(topo as never, withoutDenmark as never, false)
+  return meshLines(topo as never, withoutDenmark as never, false, [
+    'coast',
+    'border',
+  ])
 }
