@@ -261,7 +261,10 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
    * into it, so Denmark-as-one stands at the height its ratio deserves next
    * to the eleven it is made of, instead of filling the frame because it is
    * the only prism on screen. A count does not: a sum grows with every
-   * province added to it, so for those the ceiling is the level's own.
+   * province added to it, so for those the ceiling is the level's own —
+   * otherwise the three million families of Denmark-as-one, measured against
+   * a single province's ceiling, stand eight times full height and take the
+   * land they are standing on out of the frame with them.
    */
   const tracks = useMemo<Track[]>(() => {
     const sliced = slice(rows, {
@@ -294,7 +297,7 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
 
     // Counts are summed, so they only make sense against their own level's
     // scale; everything else is a mean and shares the leaves' ceiling.
-    const scaleLevel = metric.normalisable
+    const scaleLevel = metric.additive
       ? series
       : tree[LEAF_LEVEL].map((d) => seriesFor(d.codes))
     const ceiling = unitFor(scaleLevel.flat().map(normed))

@@ -21,6 +21,17 @@ export interface MetricDef {
    * Averages and ratios are already per-family and are left alone.
    */
   normalisable: boolean
+  /**
+   * True for the measures that are summed when provinces are pooled rather
+   * than averaged. A sum grows with every province added to it, so an
+   * additive measure has to be scaled against the level it is drawn at:
+   * against the leaves' ceiling, Denmark-as-one would stand eight times
+   * full height and leave the country it covers off the bottom of the frame.
+   * Means and ratios are the same magnitude at every level and share one
+   * ceiling, which is what lets a pooled prism be read against the leaves it
+   * is made of.
+   */
+  additive: boolean
   available: boolean
   note?: string
 }
@@ -29,11 +40,12 @@ export const METRICS: MetricDef[] = [
   {
     key: 'ratio',
     uses: ['property', 'family', 'basis'],
-    label: 'Affordability',
+    label: 'Price over income',
     axis: 'Price-to-income ratio',
     value: (r, b) => ratioOf(r, b),
     format: fmtRatio,
     normalisable: false,
+    additive: false,
     available: true,
   },
   {
@@ -44,6 +56,7 @@ export const METRICS: MetricDef[] = [
     value: (r) => r.n_sales,
     format: fmtInt,
     normalisable: true,
+    additive: true,
     available: true,
     note: 'Normalise by families to compare market activity between a province of 600,000 families and one of 20,000.',
   },
@@ -55,6 +68,7 @@ export const METRICS: MetricDef[] = [
     value: (r, b) => incomeOf(r, b),
     format: fmtDkk,
     normalisable: false,
+    additive: false,
     available: true,
   },
   {
@@ -65,6 +79,7 @@ export const METRICS: MetricDef[] = [
     value: (r) => r.avg_price_dkk,
     format: fmtDkk,
     normalisable: false,
+    additive: false,
     available: true,
   },
   {
@@ -75,6 +90,7 @@ export const METRICS: MetricDef[] = [
     value: (r) => r.n_families,
     format: fmtInt,
     normalisable: false,
+    additive: true,
     available: true,
     note: 'The dataset counts families, not residents, so this is the number of families in the province — the denominator behind every income figure here, and the closest thing to a population measure the source provides.',
   },
