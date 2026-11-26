@@ -1,0 +1,1725 @@
+/* ----------------------------------------------------------------- base */
+/*
+  Every <svg> here is a plot sized to its measured box, never an icon in a
+  line of text. As an inline box an SVG sits on the text baseline, so the line
+  box around it is its height plus the font's descender — about 5px of
+  phantom overflow under a plot that was drawn to fit exactly. Where the
+  scrollbars take layout width (Windows, Linux) that overflow raised a
+  scrollbar, the scrollbar shrank the measured box, the chart was redrawn
+  smaller, the overflow went away, and the whole thing ran again, forever.
+*/
+svg {
+  display: block;
+}
+
+/* ---------------------------------------------------------------- shell */
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--surface-1);
+}
+.shell.dark {
+  background: var(--surface-dark);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--topbar-h);
+  padding: 0 16px;
+  background: var(--surface-1);
+}
+/* Over the globe the bar carries no surface of its own — just the text, with
+   a soft scrim underneath so it stays legible against the bright limb. */
+.shell.dark .topbar {
+  color: var(--text-inverse);
+  background: linear-gradient(
+    to bottom,
+    rgb(7 8 13 / 55%),
+    rgb(7 8 13 / 18%) 70%,
+    transparent
+  );
+}
+
+.hamburger {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.shell.dark .hamburger {
+  color: var(--text-inverse);
+  background: color-mix(in srgb, var(--surface-dark) 55%, transparent);
+  border-color: color-mix(in srgb, var(--text-inverse) 28%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-decoration: none;
+}
+.brand-years {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.shell.dark .brand-years {
+  color: var(--text-inverse-muted);
+}
+
+main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------- drawer */
+.drawer {
+  position: fixed;
+  top: var(--topbar-h);
+  bottom: 0;
+  left: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  width: var(--drawer-w);
+  padding: 18px 0 16px;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+  transform: translateX(-100%);
+  transition: transform 180ms ease;
+}
+.drawer.open {
+  transform: none;
+}
+.shell.dark .drawer {
+  color: var(--text-inverse);
+  background: color-mix(in srgb, var(--surface-dark) 92%, transparent);
+  border-right-color: var(--border-dark);
+  backdrop-filter: blur(14px);
+}
+
+.drawer ul {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.drawer a {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 22px;
+  text-decoration: none;
+}
+.drawer a:hover {
+  background: var(--surface-2);
+}
+.shell.dark .drawer a:hover {
+  background: var(--surface-dark-2);
+}
+.drawer a.active {
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.nav-num {
+  width: 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.shell.dark .nav-num {
+  color: var(--text-inverse-muted);
+}
+
+.drawer-foot {
+  padding: 16px 22px 0;
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.shell.dark .drawer-foot {
+  border-top-color: var(--border-dark);
+}
+.download {
+  display: inline-block;
+  padding: 8px 14px;
+  font-size: 14px;
+  color: #fff;
+  text-decoration: none;
+  background: var(--accent);
+  border-radius: var(--radius);
+}
+.source {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.shell.dark .source {
+  color: var(--text-inverse-muted);
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  padding: 0;
+  background: rgb(11 11 11 / 35%);
+  border: 0;
+}
+
+/* ----------------------------------------------------------------- hero */
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* The top bar floats over the globe rather than sitting above it. */
+  margin-top: calc(-1 * var(--topbar-h));
+  min-height: 100dvh;
+  color: var(--text-inverse);
+  background:
+    radial-gradient(120% 90% at 50% 0%, #10204a 0%, #0a0f1f 55%, #07080d 100%);
+}
+.globe-box {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.globe-fallback {
+  display: grid;
+  place-items: center;
+  min-height: 50vh;
+  padding: 32px;
+}
+
+/*
+  Fills whatever the filter bar leaves. `1 0 auto` grows into spare room but
+  never shrinks below its own content, so a hero too tall for the viewport
+  still scrolls rather than collapsing.
+
+  The bottom padding used to be a guess at the filter bar's height — 104px
+  here, 150px narrow, 92px short — because the bar was positioned out of
+  flow. The guesses drifted from the real bar (97px against that 92px, so the
+  measure panel sat *on top* of it), and every one of them had to be redone
+  whenever the bar wrapped to another line. The bar is now in flow and this is
+  just the gap above it.
+*/
+.hero-overlay {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: 24px;
+  justify-content: space-between;
+  padding: calc(var(--topbar-h) + 24px) 32px 28px;
+  pointer-events: none;
+}
+.hero-overlay > * {
+  pointer-events: auto;
+}
+
+.hero-copy {
+  max-width: 640px;
+}
+.hero-copy h1 {
+  font-size: clamp(26px, 3.4vw, 42px);
+  line-height: 1.15;
+}
+.hero-copy p {
+  max-width: 44ch;
+  margin: 14px 0 0;
+  font-size: 14px;
+  color: var(--text-inverse-muted);
+}
+
+.hero-controls {
+  width: min(400px, 100%);
+  padding: 16px 18px;
+  background: color-mix(in srgb, var(--surface-dark) 82%, transparent);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+  backdrop-filter: blur(14px);
+}
+.metric-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.metric-switch button {
+  padding: 6px 11px;
+  font-size: 13px;
+  color: var(--text-inverse-muted);
+  background: transparent;
+  border: 1px solid var(--border-dark);
+  border-radius: 999px;
+}
+.metric-switch button[aria-pressed='true'] {
+  color: #fff;
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
+.metric-axis {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  color: var(--text-inverse-muted);
+}
+.ramp {
+  height: 8px;
+  border-radius: 4px;
+}
+.ramp-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-inverse-muted);
+}
+.metric-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-inverse-muted);
+}
+
+.hero-filters {
+  position: relative;
+  z-index: 10;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--surface-dark) 88%, transparent);
+  border-top: 1px solid var(--border-dark);
+  backdrop-filter: blur(10px);
+}
+
+/* --------------------------------------------------------- year slider */
+.year-slider {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+}
+.hero-filters .year-slider,
+.control-bar .year-slider {
+  flex: 1;
+  min-width: 220px;
+  margin-top: 0;
+}
+.year-slider input[type='range'] {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--accent);
+}
+.play {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentcolor;
+  border-radius: 50%;
+  opacity: 0.75;
+}
+.year-value {
+  min-width: 4ch;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------- control bar */
+.control-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+  padding: 12px 0;
+}
+.control-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.hero-filters .control-bar label {
+  color: var(--text-inverse-muted);
+}
+.control-bar select {
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.hero-filters .control-bar select {
+  border-color: var(--border-dark);
+}
+.hero-filters .control-bar select option {
+  color: var(--text-primary);
+}
+
+/* --------------------------------------------------------------- pages */
+.page {
+  max-width: 1120px;
+  padding: 8px 24px 64px;
+  margin: 0 auto;
+}
+.load-state {
+  padding: 48px 24px;
+  color: var(--text-secondary);
+}
+.load-error {
+  color: #a3302f;
+}
+
+.chart {
+  padding: 18px 20px 22px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.chart-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.chart-head h2 {
+  font-size: 20px;
+}
+.chart-sub {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.chart-actions {
+  display: flex;
+  gap: 6px;
+}
+.chart-actions button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.chart-actions button[aria-pressed='true'],
+.chart-actions button[aria-expanded='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.chart-info {
+  padding: 12px 14px;
+  margin: 14px 0 0;
+  font-size: 13px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+.chart-info p {
+  margin: 0;
+}
+.chart-question {
+  margin-bottom: 6px !important;
+  font-weight: 600;
+}
+.chart-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  min-height: 0;
+}
+.chart-legend-row {
+  flex: none;
+  margin-bottom: 6px;
+}
+/*
+  The measured box. Everything a chart draws is sized from this, so it must
+  contain nothing but the plot — and nothing a chart draws may ever change its
+  size, or the measurement feeds back into itself. `overflow: hidden` is what
+  guarantees that: this box can never raise a scrollbar of its own, so its
+  content box is fixed by the layout above it and the chart below it cannot
+  argue. Scrolling, where a chart genuinely needs it, happens in `.plot-scroll`
+  inside — an absolutely positioned child, whose own scrollbars cannot reach
+  back out and resize the box that was measured.
+*/
+.plot-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+/*
+  Fills the measured box exactly. `overflow-x` stays hidden on purpose: a
+  horizontal scrollbar is the one that steals *height*, which is what turned a
+  one-off 15px width correction into an endless resize loop.
+*/
+.plot-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.chart-plot {
+  position: relative;
+}
+
+.pending {
+  display: grid;
+  place-content: center;
+  height: 100%;
+  min-height: 320px;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+.pending-note {
+  max-width: 46ch;
+  font-size: 13px;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  font-size: 14px;
+}
+
+/* ---------------------------------------------------------------- chart */
+text.axis {
+  font-size: 11px;
+  text-anchor: middle;
+  fill: var(--text-secondary);
+}
+text.axis-title {
+  font-size: 11px;
+  text-anchor: end;
+  fill: var(--text-secondary);
+}
+text.bar-label {
+  font-size: 13px;
+  text-anchor: end;
+  dominant-baseline: middle;
+  fill: var(--text-primary);
+}
+text.bar-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  dominant-baseline: middle;
+  fill: var(--text-secondary);
+}
+tspan.warn {
+  fill: var(--warn);
+}
+
+.legend {
+  display: flex;
+  gap: 18px;
+  padding: 0;
+  margin: 8px 0 0;
+  font-size: 12px;
+  list-style: none;
+  color: var(--text-secondary);
+}
+.legend li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* -------------------------------------------------------------- tooltip */
+.tooltip,
+.globe-tip {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.tooltip {
+  position: absolute;
+  z-index: 15;
+  min-width: 150px;
+  padding: 8px 10px;
+  pointer-events: none;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
+.tooltip dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 1px 12px;
+  margin: 6px 0 0;
+}
+.tooltip dt {
+  color: var(--text-secondary);
+}
+.tooltip dd {
+  margin: 0;
+  text-align: right;
+}
+/* A dt/dd pair wrapped in a div, so the two never wrap apart — `contents`
+   keeps them as direct grid items of the dl. */
+.tip-pair {
+  display: contents;
+}
+.tip-da {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.tip-warn {
+  margin-top: 5px;
+  color: #8a5d00;
+}
+.globe-tip {
+  padding: 8px 10px;
+  color: var(--text-inverse);
+  background: color-mix(in srgb, var(--surface-dark) 94%, transparent);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+}
+.globe-tip div {
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+.globe-tip b,
+.globe-tip i {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.globe-tip i {
+  font-style: normal;
+  color: var(--warn);
+}
+
+/* ----------------------------------------------------------------- table */
+.data-table {
+  width: 100%;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+.data-table th,
+.data-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--grid);
+}
+.data-table thead th {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.data-table td.num {
+  text-align: right;
+}
+
+/* ------------------------------------------------------------ responsive */
+@media (width >= 1024px) {
+  /* Wide screens: the drawer pushes the page instead of covering it. */
+  .shell.drawer-open main,
+  .shell.drawer-open .topbar {
+    padding-left: var(--drawer-w);
+    transition: padding-left 180ms ease;
+  }
+  .shell.drawer-open .scrim {
+    display: none;
+  }
+}
+
+@media (width < 720px) {
+  .hero-overlay {
+    padding: 24px 16px 24px;
+  }
+  .page {
+    padding-inline: 16px;
+  }
+  .hero-controls {
+    width: 100%;
+  }
+}
+
+/* --------------------------------------------------------- globe controls */
+/*
+  Clear of the dot rail, which is fixed to the same edge and tall enough that
+  its lower arrow sat exactly where the zoom-in button was. There is no room
+  to drop below the rail either — the gap between its bottom and the filter
+  bar is shorter than this stack — so the controls step inboard instead.
+*/
+.globe-controls {
+  position: absolute;
+  right: calc(var(--dot-rail-w) + 14px);
+  bottom: 110px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.globe-controls button {
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-inverse-muted);
+  background: color-mix(in srgb, var(--surface-dark) 78%, transparent);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius);
+  backdrop-filter: blur(10px);
+}
+.globe-controls button:hover {
+  color: var(--text-inverse);
+  border-color: var(--accent-dark);
+}
+
+/*
+  The tree readout, directly under the zoom buttons it belongs to: the name of
+  the level the camera is in, and four steps standing for the four levels.
+*/
+.globe-levels {
+  position: absolute;
+  right: calc(var(--dot-rail-w) + 14px);
+  /* Directly above the zoom buttons, which are 3 x 34px plus two 6px gaps. */
+  bottom: 234px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
+}
+.globe-level-name {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-inverse-muted);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 55%);
+}
+.globe-level-steps {
+  display: flex;
+  gap: 4px;
+}
+.globe-level-steps button {
+  width: 16px;
+  height: 5px;
+  padding: 0;
+  background: color-mix(in srgb, var(--text-inverse) 28%, transparent);
+  border: 0;
+  border-radius: 3px;
+}
+.globe-level-steps button:hover {
+  background: color-mix(in srgb, var(--text-inverse) 55%, transparent);
+}
+.globe-level-steps button.is-current {
+  /* The globe's own accent, not the UI's blue: these stand for the prisms. */
+  background: #ef8878;
+}
+
+/* ------------------------------------------------------ chart page chrome */
+.drawer-home {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.shell.dark .drawer-home {
+  border-bottom-color: var(--border-dark);
+}
+
+.page-head {
+  padding: 22px 0 14px;
+}
+.eyebrow {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.eyebrow-sep {
+  opacity: 0.5;
+}
+.page-question {
+  max-width: 62ch;
+  margin: 6px 0 0;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.control-bar-wrap {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 8;
+  margin-bottom: 16px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.chart {
+  box-shadow: var(--shadow-1);
+}
+
+.pager {
+  gap: 12px;
+}
+.pager a {
+  padding: 8px 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.pager a:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------------ chart parts */
+text.axis-y {
+  font-size: 11px;
+  text-anchor: end;
+  dominant-baseline: middle;
+  fill: var(--text-secondary);
+}
+text.axis-title-y {
+  text-anchor: start;
+  dominant-baseline: middle;
+}
+text.series-label {
+  font-size: 12px;
+  font-weight: 600;
+  dominant-baseline: middle;
+}
+text.panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text-primary);
+}
+text.reference-label {
+  font-size: 10px;
+  text-anchor: end;
+  fill: var(--text-secondary);
+}
+text.tick-rotated {
+  font-size: 11px;
+  text-anchor: end;
+  fill: var(--text-secondary);
+}
+text.inset-label {
+  font-size: 10px;
+  fill: var(--text-secondary);
+}
+.region {
+  cursor: pointer;
+}
+.region:hover {
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
+}
+
+.chart-hint {
+  max-width: 76ch;
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.chart-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.chart-toggles button {
+  padding: 5px 11px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.chart-toggles button[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.chart-toggles label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.chart-toggles select {
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.chart-toggles .legend {
+  margin: 0;
+}
+
+/* CSS beats presentation attributes in SVG, so anchoring needs classes. */
+text.legend-start {
+  text-anchor: start;
+}
+text.legend-end {
+  text-anchor: end;
+}
+text.legend-mid {
+  text-anchor: middle;
+}
+
+/* ============================================================ fit to screen
+   A chart page is exactly one viewport tall and never scrolls: the head, the
+   filters, the hint and the pager take what they need, and the plot is given
+   every pixel left over. `dvh` rather than `vh` so a mobile browser's
+   collapsing address bar does not cut the bottom off. */
+.shell.fit {
+  height: 100dvh;
+  overflow: hidden;
+}
+.shell.fit main {
+  display: flex;
+  min-height: 0;
+}
+
+.page-fit {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1320px;
+  height: 100%;
+  padding: 0 24px 12px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+.page-fit .page-head {
+  flex: none;
+  padding: 10px 0 6px;
+}
+.page-fit .page-question {
+  font-size: 15px;
+}
+.page-fit .control-bar-wrap {
+  position: static;
+  flex: none;
+  margin-bottom: 10px;
+}
+.page-fit .control-bar {
+  padding: 8px 0;
+}
+.page-fit .chart {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 18px 14px;
+}
+.page-fit .chart-head {
+  flex: none;
+}
+.page-fit .chart-info {
+  flex: none;
+  max-height: 32vh;
+  overflow-y: auto;
+}
+.page-fit .chart-hint {
+  flex: none;
+  margin-top: 8px;
+  /* Two lines at most: the full text is always in the info panel. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.page-fit .pager {
+  flex: none;
+  margin-top: 10px;
+}
+/* Two levels of scroll, both inside the chart and never on the page: the plot
+   scrolls when a chart genuinely wants more room than the screen has (small
+   multiples) — that is `.plot-scroll` above, not this box — and the body
+   scrolls when the viewport is shorter than the chart's own minimum. */
+/*
+  `flex: 1` is what makes the chart appear finished rather than grow into
+  place. Without it the body takes its height from its own content — which is
+  the SVG, whose height comes from measuring the body — so each ResizeObserver
+  pass nudged the chart a few pixels larger and the map visibly swelled for
+  half a second after every open. Being a flex child of a bounded column gives
+  it a definite height in the first layout pass, so the measurement is right
+  the first time and there is nothing to settle.
+*/
+.page-fit .chart-body {
+  flex: 1;
+  min-height: 0;
+  /* Never `overflow: auto`: a horizontal scrollbar here would take height from
+     the plot inside it, which is the same feedback loop one level up. */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* ============================================================== dot rail */
+.dot-nav {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  z-index: 28;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  /* Stated rather than taken from the content, so the token other elements
+     keep away from is the rail's real width. */
+  width: var(--dot-rail-w);
+  padding: 8px 10px 8px 16px;
+  transform: translateY(-50%);
+}
+.dot-nav ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.dot-mark {
+  width: 8px;
+  height: 8px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  opacity: 0.38;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    background-color 140ms ease;
+}
+.dot:hover .dot-mark,
+.dot:focus-visible .dot-mark {
+  opacity: 0.8;
+  transform: scale(1.3);
+}
+.dot.current .dot-mark {
+  background: var(--accent);
+  opacity: 1;
+  transform: scale(1.5);
+}
+/* The globe and the two essay pages are marked out from the ten charts. */
+.dot-globe .dot-mark,
+.dot-page .dot-mark {
+  border-radius: 2px;
+}
+
+/* The label that appears on hover, to the left of the rail. */
+.dot-flag {
+  position: absolute;
+  right: 34px;
+  display: none;
+  max-width: 280px;
+  padding: 7px 11px;
+  text-align: left;
+  pointer-events: none;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
+.dot:hover .dot-flag,
+.dot:focus-visible .dot-flag {
+  display: block;
+}
+.dot-flag-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.dot-flag-num {
+  margin-right: 7px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.dot-flag-title {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+/* The arrows stay out of the way until the rail is hovered or tabbed into. */
+.dot-arrow {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 2px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.dot-nav:hover .dot-arrow,
+.dot-nav:focus-within .dot-arrow {
+  opacity: 1;
+}
+.dot-arrow:disabled {
+  cursor: default;
+  opacity: 0;
+}
+.dot-nav:hover .dot-arrow:disabled,
+.dot-nav:focus-within .dot-arrow:disabled {
+  opacity: 0.3;
+}
+.dot-arrow:not(:disabled):hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+/* Over the globe the rail is on a dark scene. */
+.shell.dark .dot-mark {
+  background: var(--text-inverse);
+}
+.shell.dark .dot.current .dot-mark {
+  background: var(--accent-dark);
+}
+.shell.dark .dot-flag,
+.shell.dark .dot-arrow {
+  color: var(--text-inverse);
+  background: color-mix(in srgb, var(--surface-dark) 92%, transparent);
+  border-color: var(--border-dark);
+  backdrop-filter: blur(10px);
+}
+.shell.dark .dot-flag-label {
+  color: var(--text-inverse);
+}
+.shell.dark .dot-flag-title {
+  color: var(--text-inverse-muted);
+}
+
+/* The rail overlaps the chart on a narrow screen, so the page makes room. */
+@media (width >= 900px) {
+  .page-fit,
+  .story-page,
+  .build-page {
+    padding-right: 52px;
+  }
+}
+
+/* ====================================================== controls, bits */
+.speed-switch {
+  display: flex;
+  gap: 2px;
+}
+.speed-switch button {
+  padding: 2px 6px;
+  font-size: 11px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  opacity: 0.6;
+}
+.speed-switch button[aria-pressed='true'] {
+  border-color: currentcolor;
+  opacity: 1;
+}
+
+/* ------------------------------------------------------- province filter */
+/*
+  Matches the selects beside it: the trigger is a select-shaped button and the
+  panel hangs under it, so the control bar stays one row however many
+  provinces are ticked.
+*/
+.control-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.control-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.province-trigger {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 170px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+/* A filter that is actually filtering says so without being read. */
+.province-trigger[data-filtered] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.province-trigger .caret {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.province-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  width: max-content;
+  min-width: 100%;
+  max-height: 340px;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
+.province-menu-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.province-menu ul {
+  padding: 4px;
+  margin: 0;
+  list-style: none;
+}
+/* `flex-direction` has to be stated: the `.control-bar label` rule these sit
+   inside stacks its label above its control, which would put every checkbox
+   on its own line above the province name. */
+.province-menu label {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 5px 8px;
+  font-size: 14px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-primary);
+  border-radius: var(--radius);
+}
+.province-menu label:hover {
+  background: var(--surface-2);
+}
+.province-menu input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+.link-button {
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: none;
+  border: 0;
+}
+.link-button:disabled {
+  cursor: default;
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.pill {
+  padding: 5px 11px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.pill[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.pill:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.chart-titles {
+  min-width: 0;
+}
+.chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+}
+.chart-info-hint {
+  margin-top: 8px !important;
+  color: var(--text-secondary);
+}
+
+/* A legend that has to carry eleven names wraps instead of overflowing. */
+.legend-wrap {
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.legend-pick {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 1px 4px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+}
+.legend-pick:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.legend-pick.is-active {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ======================================================= chart details */
+text.series-label.is-active {
+  font-weight: 700;
+}
+.end-label text {
+  cursor: pointer;
+}
+.bar-row,
+.heat-cell,
+.bubble {
+  cursor: pointer;
+}
+text.inset-label-east {
+  text-anchor: end;
+}
+.denmark-inset {
+  pointer-events: none;
+}
+text.story-event-label {
+  font-size: 10px;
+  fill: var(--text-secondary);
+  /* The dashed year lines run the full height of the plot, so a caption wide
+     enough to reach the next one gets a halo of the card's own background and
+     stays readable where the two cross. `paint-order` puts the stroke behind
+     the glyphs instead of thickening them. */
+  paint-order: stroke;
+  stroke: var(--surface-1);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* ============================================================ the story */
+.story-page,
+.build-page {
+  max-width: 1440px;
+}
+.story-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+.story-chart {
+  display: flex;
+  flex-direction: column;
+}
+.story-chart .chart-body {
+  min-height: 0;
+}
+/*
+  A definite height, not a minimum. The story page scrolls, so nothing above
+  bounds this box: with only a min-height the plot's measured height and the
+  SVG height it sets are each defined by the other, and the chart settles at
+  whatever the first layout pass happened to produce.
+*/
+.story-chart .plot-area {
+  /*
+    `flex: none` as well as the height: the shared .plot-area rule sets
+    `flex: 1`, whose `flex-basis: 0%` wins over `height` when the box is laid
+    out as a flex item, collapsing the plot to nothing.
+  */
+  flex: none;
+  height: clamp(260px, 44vh, 420px);
+}
+.story-timeline {
+  margin-top: 12px;
+}
+.story-timeline input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.story-progress {
+  height: 3px;
+  margin: 2px 0 10px;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-radius: 2px;
+}
+.story-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+/*
+  One row: the chapter pills read as a timeline, so they are sized to fit the
+  chart column on a desktop width and only wrap once the page itself narrows.
+*/
+.story-chapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.story-chapters button {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 4px 9px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.story-chapters button.is-current {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.story-chapters .num {
+  font-size: 11px;
+  opacity: 0.7;
+}
+/*
+  Between the widest desktop and the single-column breakpoint the chart column
+  is a little too narrow for seven pills, so they tighten rather than wrap.
+*/
+@media (width < 1400px) {
+  .story-chapters {
+    gap: 4px;
+  }
+  .story-chapters button {
+    gap: 5px;
+    padding: 3px 8px;
+  }
+}
+
+.story-caption {
+  position: sticky;
+  top: calc(var(--topbar-h) + 12px);
+  padding: 18px 20px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+/* The chapter stepper sits above the narration it moves through. */
+.story-steps {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.story-steps button {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.story-steps button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.story-steps button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.story-step-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.story-years {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.story-caption h3 {
+  margin: 4px 0 8px;
+  font-size: 18px;
+}
+.story-caption p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.story-readout {
+  padding-top: 10px;
+  font-size: 13px !important;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+}
+.story-source {
+  font-size: 11.5px !important;
+  line-height: 1.5 !important;
+  color: var(--text-secondary);
+}
+
+/* ====================================================== build your own */
+.build-chart {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.build-chart .chart-body {
+  min-height: 0;
+}
+.build-chart .plot-area {
+  min-height: 260px;
+}
+.build-page .build-table {
+  flex: none;
+}
+.build-page .build-table .table-scroll {
+  max-height: 32vh;
+}
+.build-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--grid);
+}
+.build-pickers label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.build-pickers select {
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-primary);
+  text-transform: none;
+  letter-spacing: normal;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.build-pickers .metric-switch button {
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.build-pickers .metric-switch button[aria-pressed='true'] {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.build-table {
+  margin-top: 18px;
+  font-size: 13px;
+}
+.build-table summary {
+  padding: 8px 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* The hero has to hold a headline, a measure panel and the filter bar inside
+   one viewport. On a short screen the panel grows past it and pushes the
+   filters off the bottom, so the type and the padding come down with it. */
+@media (height < 820px) {
+  .hero-copy h1 {
+    font-size: clamp(22px, 2.6vw, 30px);
+  }
+  .hero-copy p {
+    margin-top: 10px;
+    font-size: 13px;
+  }
+  .hero-overlay {
+    gap: 14px;
+    padding: calc(var(--topbar-h) + 14px) 28px 20px;
+  }
+  .hero-controls {
+    padding: 12px 14px;
+  }
+  .metric-axis {
+    margin: 10px 0 5px;
+  }
+  .hero-controls .year-slider {
+    margin-top: 10px;
+  }
+  .metric-note {
+    margin-top: 8px;
+    /* The full text is on the button's tooltip. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+}
+
+/* A laptop viewport spends most of its height on chrome, so on a short screen
+   the page sheds everything that is repeated elsewhere: the research question
+   is in the info panel, and the hint is clamped to one line. */
+@media (height < 820px) {
+  .page-fit .page-head {
+    padding: 6px 0 2px;
+  }
+  .page-fit .page-question {
+    display: none;
+  }
+  .page-fit .chart {
+    padding: 10px 16px;
+  }
+  .page-fit .chart-head h2 {
+    font-size: 17px;
+  }
+  .page-fit .chart-sub {
+    font-size: 12px;
+  }
+  .page-fit .chart-hint {
+    -webkit-line-clamp: 1;
+    margin-top: 6px;
+  }
+  .page-fit .pager {
+    margin-top: 6px;
+  }
+  .page-fit .pager a {
+    padding: 5px 12px;
+  }
+}
+
+/* ========================================================== responsive */
+@media (width < 1024px) {
+  .story-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .story-caption {
+    position: static;
+  }
+}
+
+@media (width < 760px) {
+  /* Below this a viewport-tall chart is unreadable, so the page scrolls
+     again and each chart is given a workable minimum instead. */
+  .shell.fit {
+    height: auto;
+    overflow: visible;
+  }
+  .page-fit {
+    height: auto;
+    overflow: visible;
+  }
+  .page-fit .chart {
+    min-height: 420px;
+  }
+  /* The rail is narrower here — no arrows, smaller dots, less padding — so
+     the token moves with it and the globe controls step back out toward the
+     edge. It has to be redefined on the root: a custom property inherits down
+     the tree, and `.globe-controls` is not inside the rail. */
+  :root {
+    --dot-rail-w: 28px;
+  }
+  .dot-nav {
+    gap: 0;
+    padding: 6px;
+  }
+  .dot {
+    width: 16px;
+    height: 14px;
+  }
+  .dot-flag {
+    display: none !important;
+  }
+  .dot-arrow {
+    display: none;
+  }
+}

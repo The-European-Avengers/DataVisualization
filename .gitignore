@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 notebooks/figures/
+
+# built by scripts/build_web_data.py / the deploy workflow
+web/public/report/

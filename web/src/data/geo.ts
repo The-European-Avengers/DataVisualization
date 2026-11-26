@@ -1,0 +1,95 @@
+import { feature, merge, mesh } from 'topojson-client'
+
+export interface ProvinceFeature {
+  type: 'Feature'
+  properties: { nuts3: string; landsdel: string }
+  geometry: GeoJSON.Geometry
+}
+
+/** The eleven landsdele as GeoJSON features, decoded from the TopoJSON. */
+export function provinceFeatures(topology: unknown): ProvinceFeature[] {
+  const topo = topology as { objects: Record<string, unknown> }
+  const collection = feature(
+    topo as never,
+    topo.objects.landsdele as never,
+  ) as unknown as { features: ProvinceFeature[] }
+  return collection.features
+}
+
+export const BORNHOLM = 'DK014'
+
+/** One line of a boundary mesh: a run of [lng, lat] pairs. */
+export interface GeoPath {
+  points: [number, number][]
+  /** An outer edge (coast or national border) or an internal division. */
+  kind: 'coast' | 'border'
+}
+
+/**
+ * Boundary lines out of a TopoJSON object.
+ *
+ * `mesh` is used rather than the feature rings because it dedupes shared
+ * arcs: a border between two regions comes back once, not twice stacked on
+ * each other — which matters for translucent lines, since a doubled line
+ * draws twice as bright as the coast beside it. The outer edges and the
+ * internal divisions are meshed separately so a caller can weight them
+ * differently, or ask for only one of them.
+ */
+function meshLines(
+  topo: never,
+  object: never,
+  kinds: ('coast' | 'border')[],
+): GeoPath[] {
+  const run = (kind: 'coast' | 'border'): GeoPath[] =>
+    mesh(topo, object, (a, b) => (kind === 'coast' ? a === b : a !== b))
+      .coordinates.map((points) => ({
+        points: points as [number, number][],
+        kind,
+      }))
+  return kinds.flatMap(run)
+}
+
+/**
+ * World coastlines and national borders, for the globe.
+ *
+ * Denmark is drawn from this file like every other country, at Natural
+ * Earth's generalisation: 297 points for the whole country against the
+ * 17,000 the DAGI boundaries carry. The detailed outlines have a job on this
+ * map, but it is standing on top of the prisms, not lying on the water — a
+ * coast traced to the metre beside neighbours traced to the kilometre makes
+ * the neighbours look broken.
+ */
+export function worldMesh(topology: unknown): GeoPath[] {
+  const topo = topology as { objects: Record<string, unknown> }
+  return meshLines(topo as never, topo.objects.countries as never, [
+    'coast',
+    'border',
+  ])
+}
+
+/**
+ * Several landsdele dissolved into one shape.
+ *
+ * `merge` works on the topology's arcs rather than on the rings, so a border
+ * two provinces share is dropped rather than drawn twice: the Jutland group
+ * comes back as the outline of Jutland, not as four provinces stacked
+ * edge to edge. Islands stay separate polygons of the result, which is what
+ * the globe wants — Zealand and Lolland are one group but two prisms' worth
+ * of footprint.
+ */
+export function mergedShape(
+  topology: unknown,
+  codes: string[],
+): [number, number][][][] {
+  const topo = topology as {
+    objects: {
+      landsdele: { geometries: { properties?: { nuts3?: string } }[] }
+    }
+  }
+  const wanted = new Set(codes)
+  const parts = topo.objects.landsdele.geometries.filter((g) =>
+    wanted.has(g.properties?.nuts3 ?? ''),
+  )
+  const shape = merge(topo as never, parts as never)
+  return shape.coordinates as [number, number][][][]
+}
