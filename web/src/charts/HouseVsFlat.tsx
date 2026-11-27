@@ -7,7 +7,7 @@ import { Tooltip } from '../components/Tooltip'
 import { useTip } from '../components/useTip'
 import { useDataset } from '../data/DataContext'
 import { fmtInt, fmtRatio } from '../data/format'
-import { atFracYear, byProvince, isLowSample, ratioOf, slice } from '../data/selectors'
+import { atFracYear, byProvince, ratioOf, slice } from '../data/selectors'
 import { PROPERTY_COLOR } from '../design/palette'
 import { TICK_ANGLE, TICK_OFFSET, rotatedTickDepth } from '../components/labels'
 import {
@@ -76,14 +76,8 @@ export function HouseVsFlat() {
             <th scope="row">{d.name}</th>
             <td className="num">{fmtRatio(ratioOf(d.house, basis))}</td>
             <td className="num">{fmtRatio(ratioOf(d.flat, basis))}</td>
-            <td className="num">
-              {fmtInt(d.house.n_sales)}
-              {isLowSample(d.house) && ' ⚠'}
-            </td>
-            <td className="num">
-              {fmtInt(d.flat.n_sales)}
-              {isLowSample(d.flat) && ' ⚠'}
-            </td>
+            <td className="num">{fmtInt(d.house.n_sales)}</td>
+            <td className="num">{fmtInt(d.flat.n_sales)}</td>
           </tr>
         ))}
       </tbody>
@@ -114,10 +108,11 @@ export function HouseVsFlat() {
       }
       hint={
         <>
-          In City of Copenhagen most purchases are flats and houses are a thin
-          market, so the house bar there rests on few transactions — every bar
-          under fifteen sales carries a ⚠. Click a province to narrow the chart
-          to it; click again to put it back.
+          In City of Copenhagen most purchases are flats, and houses are a thin
+          market there, so its house bar is built from far fewer sales than the
+          flat bar beside it and swings more from year to year. The sales
+          count behind each bar is in its tooltip, and in the table view. Click
+          a province to narrow the chart to it; click again to put it back.
         </>
       }
     >
@@ -182,21 +177,11 @@ export function HouseVsFlat() {
                         <dt>Sales</dt>
                         <dd className="num">{fmtInt(row.n_sales)}</dd>
                       </dl>
-                      {isLowSample(row) && <div className="tip-warn">⚠ low sample</div>}
                     </>,
                   )
                 }
                 onPointerLeave={hide}
               />
-              {isLowSample(row) && (
-                <text
-                  className="bar-value warn legend-mid"
-                  x={x(d.nuts3)! + inner(kind)! + inner.bandwidth() / 2}
-                  y={y(value) - 6}
-                >
-                  ⚠
-                </text>
-              )}
             </g>
           )
         }

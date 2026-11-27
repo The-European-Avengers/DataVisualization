@@ -92,7 +92,7 @@ export const METRICS: MetricDef[] = [
     normalisable: false,
     additive: true,
     available: true,
-    note: 'The dataset counts families, not residents, so this is the number of families in the province — the denominator behind every income figure here, and the closest thing to a population measure the source provides.',
+    note: 'The dataset counts families, not residents, so this is the number of families in the province. It is the denominator behind every income figure here, and the closest thing to a population measure the source provides.',
   },
 ]
 

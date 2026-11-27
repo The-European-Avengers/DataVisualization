@@ -97,7 +97,7 @@ export function DumbbellFamily() {
         <>
           Both ends divide the <em>same</em> average sale price by each group’s
           income, so they show what the average home would cost relative to that
-          income — not what each group actually pays. Singles more often buy
+          income, not what each group actually pays. Singles more often buy
           cheaper homes or rent, so their end is hypothetical.
         </>
       }

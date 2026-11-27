@@ -76,7 +76,7 @@ export function Heatmap() {
                 const row = cells.get(`${code}:${y}`)
                 return (
                   <td key={y} className="num">
-                    {row ? fmtRatio(ratioOf(row, basis)) : '—'}
+                    {row ? fmtRatio(ratioOf(row, basis)) : 'n/a'}
                   </td>
                 )
               })}
@@ -218,7 +218,7 @@ export function Heatmap() {
                   x={rampWidth + 14}
                   y={9}
                 >
-                  Price-to-income ratio — rows sorted by {last}
+                  Price-to-income ratio, rows sorted by {last}
                 </text>
               </g>
             </svg>

@@ -56,14 +56,14 @@ const CHAPTERS: Chapter[] = [
     from: 2007,
     to: 2009,
     title: 'The crash',
-    body: 'The global financial crisis reaches Danish housing. Prices fall hard and sales collapse — the thinnest transaction years in the series are here. Incomes keep rising slowly through it, so the ratio drops sharply: for two or three years, homes get genuinely more affordable, for the people still able to buy.',
+    body: 'The global financial crisis reaches Danish housing. Prices fall hard and sales collapse; the thinnest transaction years in the series are here. Incomes keep rising slowly through it, so the ratio drops sharply: for two or three years, homes get genuinely more affordable, for the people still able to buy.',
     shortTitle: 'The crash',
   },
   {
     from: 2009,
     to: 2013,
     title: 'The hangover, and the 2011 tax change',
-    body: 'The recovery is slow and uneven. Around 2011 the tax treatment of housing tightens — the value of the mortgage interest deduction begins to be reduced, on top of the nominal freeze on property value tax that had been in place since the early 2000s. Capital-area prices turn up first; much of Jutland stays flat for years longer.',
+    body: 'The recovery is slow and uneven. Around 2011 the tax treatment of housing tightens: the value of the mortgage interest deduction begins to be reduced, on top of the nominal freeze on property value tax that had been in place since the early 2000s. Capital-area prices turn up first; much of Jutland stays flat for years longer.',
     shortTitle: 'The tax change',
   },
   {
@@ -77,14 +77,14 @@ const CHAPTERS: Chapter[] = [
     from: 2020,
     to: 2022,
     title: 'The pandemic surge',
-    body: 'The sharpest two-year rise in the series. Sales spike, and prices with them. The surge reaches provinces that had been flat since the crash — this is the one episode where the whole country moves together.',
+    body: 'The sharpest two-year rise in the series. Sales spike, and prices with them. The surge reaches provinces that had been flat since the crash, and this is the one episode where the whole country moves together.',
     shortTitle: 'The pandemic surge',
   },
   {
     from: 2022,
     to: 2024,
     title: 'Rates return',
-    body: 'Rising interest rates cool the market. Prices flatten or dip while incomes catch up a little, so the ratio eases back — but only back to roughly where it was in 2020, not to anything like the 1990s. Thirty years on, the gap between the cheapest and the dearest province is several times what it was in 1995.',
+    body: 'Rising interest rates cool the market. Prices flatten or dip while incomes catch up a little, so the ratio eases back, but only to roughly where it was in 2020, not to anything like the 1990s. Thirty years on, the gap between the cheapest and the dearest province is several times what it was in 1995.',
     shortTitle: 'Rates return',
   },
 ]
@@ -212,7 +212,7 @@ export function Story() {
               <h2>Denmark as one market</h2>
               <p className="chart-sub">
                 Sales-weighted price-to-income ratio, all eleven provinces
-                pooled — higher means a home costs more years of income
+                pooled; higher means a home costs more years of income
               </p>
             </div>
             <div className="chart-actions">
@@ -317,8 +317,8 @@ export function Story() {
           </p>
           <p className="story-source">
             The shapes described here are measured from the dashboard’s own data.
-            The causes named — the 2008 crisis, the 2011 tax change, the rate
-            cycle — are context from the report, not something a price series and
+            The causes named (the 2008 crisis, the 2011 tax change, the rate
+            cycle) are context from the report, not something a price series and
             an income series can establish on their own; cite them there before
             relying on them.
           </p>

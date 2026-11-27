@@ -98,20 +98,20 @@ export function EastWest() {
         <ul className="legend">
           <li>
             <span className="swatch" style={{ background: SIDE_COLOR.east }} />
-            East of the Great Belt — Zealand, its islands, Bornholm
+            East of the Great Belt: Zealand, its islands, Bornholm
           </li>
           <li>
             <span className="swatch" style={{ background: SIDE_COLOR.west }} />
-            West of the Great Belt — Funen and Jutland
+            West of the Great Belt: Funen and Jutland
           </li>
         </ul>
       }
       hint={
         <>
           The Great Belt is the strait between Zealand and Funen. <b>East</b> is
-          Zealand, its islands and Bornholm; <b>west</b> is Funen and Jutland —
-          the split the national postal grid draws at code 5000, and the line
-          that was a ferry crossing until the bridge opened in 1997. The inset
+          Zealand, its islands and Bornholm; <b>west</b> is Funen and Jutland. That is the split the national postal
+          grid draws at code 5000, and the line that was a ferry crossing until
+          the bridge opened in 1997. The inset
           shows which provinces fall on each side. Each line is a sales-weighted
           mean, so busy provinces count for more than thin ones.
         </>

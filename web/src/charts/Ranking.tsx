@@ -188,8 +188,8 @@ export function Ranking() {
       }
       hint={
         <>
-          Blue is east of the Great Belt — Zealand, its islands and Bornholm;
-          orange is west — Funen and Jutland. The inset shows the division. Set
+          Blue is east of the Great Belt: Zealand, its islands and Bornholm.
+          Orange is west: Funen and Jutland. The inset shows the division. Set
           Property or Income to “Both” to put two bars on every province.
         </>
       }
