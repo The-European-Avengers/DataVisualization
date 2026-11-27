@@ -105,7 +105,7 @@ export function Choropleth() {
       hint={
         <>
           Darker means a home costs more years of income. Click a province to
-          add it to the filter — the chart then shows only the provinces
+          add it to the filter; the chart then shows only the provinces
           picked, here and on every other chart. The colour scale is fixed
           across all thirty years, so the shade is comparable between years.
         </>

@@ -851,7 +851,7 @@ text.inset-label {
 }
 
 .chart-hint {
-  max-width: 76ch;
+  max-width: 100%;
   margin: 12px 0 0;
   font-size: 12px;
   line-height: 1.5;
@@ -965,14 +965,18 @@ text.legend-mid {
   max-height: 32vh;
   overflow-y: auto;
 }
+/*
+  The hint reads in full. It used to be clamped to two lines on the grounds
+  that the whole of it was in the info panel anyway — but the panel is behind
+  a button nobody has a reason to press, so in practice every chart on the
+  site ended its guidance in an ellipsis mid-sentence. It is three or four
+  lines of 12px text; the chart body below it is a flex child that gives up
+  exactly that much height, and it has its own floor and its own scrollbar if
+  the screen is too short to pay for it.
+*/
 .page-fit .chart-hint {
   flex: none;
   margin-top: 8px;
-  /* Two lines at most: the full text is always in the info panel. */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
 }
 .page-fit .pager {
   flex: none;
@@ -1647,8 +1651,10 @@ text.story-event-label {
 }
 
 /* A laptop viewport spends most of its height on chrome, so on a short screen
-   the page sheds everything that is repeated elsewhere: the research question
-   is in the info panel, and the hint is clamped to one line. */
+   the page sheds what is repeated elsewhere — the research question, which is
+   also in the info panel — and tightens the type and the gaps. The hint keeps
+   all of its lines: it is the one piece of text on the page that explains how
+   to read the chart, and half of it is worth less than none. */
 @media (height < 820px) {
   .page-fit .page-head {
     padding: 6px 0 2px;
@@ -1666,7 +1672,6 @@ text.story-event-label {
     font-size: 12px;
   }
   .page-fit .chart-hint {
-    -webkit-line-clamp: 1;
     margin-top: 6px;
   }
   .page-fit .pager {

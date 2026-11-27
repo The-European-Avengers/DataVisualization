@@ -351,7 +351,7 @@ export function Build() {
 
         <p className="chart-hint">
           {KINDS.find((k) => k.key === kind)!.hint} Where provinces are pooled,
-          counts are summed and averages are weighted by sales — so the number
+          counts are summed and averages are weighted by sales, so the number
           means what it says.
         </p>
       </section>

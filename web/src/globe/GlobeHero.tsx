@@ -121,6 +121,38 @@ const LINE_COLOR = {
 const MAX_HEIGHT = 0.03
 const MIN_HEIGHT = 0.0015
 
+/**
+ * The most a prism may stand above the full unit, as a multiple of it.
+ *
+ * The unit is a percentile, not a maximum, so a few values are meant to pass
+ * it — Copenhagen's price is 1.9 units in 2024 and should look it. What they
+ * cannot do is leave the frame: at the province level the camera is a tenth
+ * of a radius off the surface, and an unbounded prism walks straight out of
+ * the top of it, taking its own roof — the part carrying the reading — with
+ * it. `squash` holds everything under this ceiling.
+ */
+const HEIGHT_CEIL = 1.25
+
+/**
+ * Heights, as a fraction of the full unit, bounded without being clipped.
+ *
+ * Below the unit this is the identity, so the bulk of every measure stays
+ * exactly proportional: a prism twice as tall is twice the value, which is
+ * the whole claim the globe makes. Above it the excess is compressed onto
+ * what is left under `HEIGHT_CEIL`, smoothly — the curve meets the identity
+ * at 1 with the same slope, so there is no visible kink where it takes over,
+ * and it stays strictly increasing, so the order of the provinces is never
+ * altered and no two values are ever flattened onto one height. What changes
+ * is only how much of the overshoot is shown, and only for the handful of
+ * values that have one.
+ */
+function squash(x: number): number {
+  if (!Number.isFinite(x) || x <= 0) return 0
+  if (x <= 1) return x
+  const over = HEIGHT_CEIL - 1
+  return 1 + over * (1 - Math.exp(-(x - 1) / over))
+}
+
 /** Per-province track: one entry per year, so any instant can be interpolated. */
 interface Track extends Region {
   name: string
@@ -193,6 +225,29 @@ function unitFor(values: number[]): number {
   const finite = values.filter(Number.isFinite)
   const q = quantile(finite, 0.9)
   return q && q > 0 ? q : (max(finite) ?? 1)
+}
+
+/**
+ * The unit for a summed measure: the largest value its level ever reaches.
+ *
+ * A percentile is the right ceiling for a measure read off eleven provinces
+ * over thirty years, which is a distribution with a tail. A sum has no such
+ * distribution to speak of at the levels above the leaves — one group at the
+ * country, two at the Great Belt, four at the islands — and what little it
+ * has grows every year, so the ninetieth percentile of it lands inside the
+ * last few years of the biggest group. That made the ceiling a restatement
+ * of the tallest prism rather than a scale for it: the top of a summed
+ * measure stood at the cap at every level and in every year near the end of
+ * the run, while a mean read against the leaves' tail sat at three-quarters
+ * of it, which is why families towered over affordability on the same view.
+ *
+ * The maximum says what it actually means — the biggest this level ever gets
+ * is one full prism — and leaves every other group and year a true fraction
+ * of it.
+ */
+function maxUnitFor(values: number[]): number {
+  const m = max(values.filter(Number.isFinite))
+  return m && m > 0 ? m : 1
 }
 
 /** Reads a per-year track at a fractional year index. */
@@ -295,12 +350,20 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
     const defs = tree[level]
     const series = defs.map((d) => seriesFor(d.codes))
 
-    // Counts are summed, so they only make sense against their own level's
-    // scale; everything else is a mean and shares the leaves' ceiling.
+    /*
+      Counts are summed, so they only make sense against their own level's
+      scale; everything else is a mean and shares the leaves' ceiling. The
+      two also take different statistics of the scale they are given — see
+      `maxUnitFor` — because a percentile needs a distribution to be a
+      percentile of, and above the leaves a sum does not have one.
+    */
     const scaleLevel = metric.additive
       ? series
       : tree[LEAF_LEVEL].map((d) => seriesFor(d.codes))
-    const ceiling = unitFor(scaleLevel.flat().map(normed))
+    const scaleValues = scaleLevel.flat().map(normed)
+    const ceiling = metric.additive
+      ? maxUnitFor(scaleValues)
+      : unitFor(scaleValues)
 
     const out: Track[] = []
     defs.forEach((def, i) => {
@@ -308,6 +371,11 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
       if (list.length === 0) return
       const shape = shapes[level].get(def.key)!
       const values = list.map(normed)
+      /*
+        One number serves the height and the colour, so a roof that stands at
+        the top of the range is also the one painted at the top of the ramp.
+      */
+      const fracs = values.map((v) => squash(ceiling > 0 ? v / ceiling : 0))
       out.push({
         nuts3: def.key,
         name: def.name,
@@ -317,10 +385,8 @@ export function GlobeHero({ onSelect }: { onSelect?: (nuts3: string) => void }) 
         lng: shape.lng,
         polygons: shape.polygons,
         values,
-        rampTops: values.map((v) => (ceiling > 0 ? v / ceiling : 0)),
-        heights: values.map(
-          (v) => MIN_HEIGHT + (ceiling > 0 ? v / ceiling : 0) * MAX_HEIGHT,
-        ),
+        rampTops: fracs,
+        heights: fracs.map((f) => MIN_HEIGHT + f * MAX_HEIGHT),
         sales: list.map((r) => r.n_sales),
       })
     })

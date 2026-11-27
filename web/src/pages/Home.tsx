@@ -40,7 +40,7 @@ export function Home() {
           <p>
             Denmark stands on the map as a single block, its height the selected
             measure in <span className="num">{Math.round(frac)}</span>, scaled
-            against the largest value across all years. Zoom in and it splits —
+            against the largest value across all years. Zoom in and it splits:
             east and west of the Great Belt, then the islands, then the eleven
             provinces. Click a block to go a level deeper, or a province to open
             its ranking.
